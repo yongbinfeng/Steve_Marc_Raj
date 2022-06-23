@@ -6,34 +6,56 @@ ROOT.ROOT.EnableImplicitMT()
 ROOT.gInterpreter.Declare('#include "Steve.h"')
 from os import listdir
 from os.path import isfile,join
+from os import walk
 
 import time
 
+import argparse
+
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument("-e","--efficiency", help="1 for trigger, 2 for isolation",
+                    type=int)
+parser.add_argument("-i","--input_path", help="path of the input root files",
+                    type=str)
+
+parser.add_argument("-o","--output_file", help="name of the output root file",
+                    type=str)
+args = parser.parse_args()
 tstart = time.time()
 cpustrat = time.process_time()
 
 files=[]
 
-dirnames=["/scratchnvme/rbhattac/TNP_NanoAOD/DY_postVFP_NanoV8MC_TagAndProbe/220405_123536/0000","/scratchnvme/rbhattac/TNP_NanoAOD/DY_postVFP_NanoV8MC_TagAndProbe/220405_123536/0001","/scratchnvme/rbhattac/TNP_NanoAOD/DY_postVFP_NanoV8MC_TagAndProbe/220405_123536/0002","/scratchnvme/rbhattac/TNP_NanoAOD/DY_postVFP_NanoV8MC_TagAndProbe/220405_123536/0003"]
+#dirnames=["/scratchnvme/rbhattac/TNP_NanoAOD/DY_postVFP_NanoV8MC_TagAndProbe/220405_123536/0000","/scratchnvme/rbhattac/TNP_NanoAOD/DY_postVFP_NanoV8MC_TagAndProbe/220405_123536/0001","/scratchnvme/rbhattac/TNP_NanoAOD/DY_postVFP_NanoV8MC_TagAndProbe/220405_123536/0002","/scratchnvme/rbhattac/TNP_NanoAOD/DY_postVFP_NanoV8MC_TagAndProbe/220405_123536/0003"]
 
-for dirname in dirnames:
-    for f in listdir(dirname):
-        if f.endswith(".root"):
-            files.append(join(dirname, f))
+#for dirname in dirnames:
+#    for f in listdir(dirname):
+#        if f.endswith(".root"):
+#            files.append(join(dirname, f))
+
+for root, dirnames, filenames in walk(args.input_path):
+     for filename in filenames:
+          if '.root' in filename:
+              files.append(join(root, filename))
 
 
-print(files)
+
+#print(files)
 filenames = ROOT.std.vector('string')()
 
 for name in files: filenames.push_back(name)
 
 d = ROOT.RDataFrame("Events",filenames )
 
-d = d.Filter("HLT_IsoMu24 || HLT_IsoTkMu24")
+f_out = ROOT.TFile(args.output_file,"RECREATE")
 
-d = d.Filter("PV_npvsGood >= 1")
+d = d.Filter("HLT_IsoMu24 || HLT_IsoTkMu24","HLT Cut")
 
-d = d.Define("isProbe","Muon_pt > 15 && Muon_standalonePt > 15 && abs(Muon_eta) < 2.4")
+d = d.Filter("PV_npvsGood >= 1","NVtx Cut")
+
+d = d.Define("isProbe","Muon_pt > 15 && Muon_standalonePt > 15 && abs(Muon_eta) < 2.4 && Muon_mediumId && abs(Muon_dxybs) < 0.05 && Muon_isGlobal")
 
 d = d.Define("isTriggeredMuon","hasTriggerMatch(Muon_eta,Muon_phi,TrigObj_id,TrigObj_pt,TrigObj_l1pt,TrigObj_l2pt,TrigObj_filterBits,TrigObj_eta,TrigObj_phi)")
 
@@ -57,6 +79,8 @@ d = d.Define("Probe_eta","getVariables(TPPairs,Muon_eta,2)")
 
 d = d.Define("Probe_phi","getVariables(TPPairs,Muon_phi,2)")
 
+d = d.Define("Probe_isTriggered","getVariables(TPPairs,isTriggeredMuon,2)")
+
 d = d.Define("Probe_isolation","getVariables(TPPairs,Muon_pfRelIso04_all,2)")
 
 d = d.Define("Probe_isGlobal","getVariables(TPPairs,Muon_isGlobal,2)")
@@ -65,26 +89,48 @@ d = d.Define("Probe_isStandalone","getVariables(TPPairs,Muon_isStandalone,2)")
 
 d = d.Define("Probe_mediumId","getVariables(TPPairs,Muon_mediumId,2)")
 
-d = d.Define("Probe_dxbs","getVariables(TPPairs,Muon_dxybs,2)")
+d = d.Define("Probe_dxybs","getVariables(TPPairs,Muon_dxybs,2)")
 
-##For Isolation
 
-iso_df = d.Redefine("TPmass","TPmass[Probe_mediumId && abs(Probe_dxbs) < 0.05]").Redefine("Probe_pt","Probe_pt[Probe_mediumId && abs(Probe_dxbs) < 0.05]").Redefine("Probe_eta","Probe_eta[Probe_mediumId && abs(Probe_dxbs) < 0.05]").Redefine("Probe_isolation","Probe_isolation[Probe_mediumId && abs(Probe_dxbs) < 0.05]").Redefine("Probe_isGlobal","Probe_isGlobal[Probe_mediumId && abs(Probe_dxbs) < 0.05]")
-iso_df = iso_df.Redefine("TPmass","TPmass[Probe_isGlobal]").Redefine("Probe_pt","Probe_pt[Probe_isGlobal]").Redefine("Probe_eta","Probe_eta[Probe_isGlobal]").Redefine("Probe_isolation","Probe_isolation[Probe_isGlobal]")
+#iso_df = d.Redefine("TPmass","TPmass[Probe_mediumId && abs(Probe_dxybs) < 0.05 && Probe_isTriggered]").Redefine("Probe_pt","Probe_pt[Probe_mediumId && abs(Probe_dxybs) < 0.05 && Probe_isTriggered]").Redefine("Probe_eta","Probe_eta[Probe_mediumId && abs(Probe_dxybs) < 0.05 && Probe_isTriggered]").Redefine("Probe_isolation","Probe_isolation[Probe_mediumId && abs(Probe_dxybs) < 0.05 && Probe_isTriggered]").Redefine("Probe_isGlobal","Probe_isGlobal[Probe_mediumId && abs(Probe_dxybs) < 0.05 && Probe_isTriggered]")
+#iso_df = iso_df.Redefine("TPmass","TPmass[Probe_isGlobal]").Redefine("Probe_pt","Probe_pt[Probe_isGlobal]").Redefine("Probe_eta","Probe_eta[Probe_isGlobal]").Redefine("Probe_isolation","Probe_isolation[Probe_isGlobal]")
 
 binning_pt = array('d',[24., 26., 28., 30., 32., 34., 36., 38., 40., 42., 44., 47., 50., 55., 60., 65.])
 binning_eta = array('d',[-2.4 + i*0.1 for i in range(49)])
 binning_mass = array('d',[50 + i for i in range(81)])
 
-model_pass = ROOT.RDF.TH3DModel("Isolation_pass", "Isolation_pass", 15, binning_pt, 48, binning_eta, 80, binning_mass)
-model_fail = ROOT.RDF.TH3DModel("Isolation_fail", "Isolation_fail", 15, binning_pt, 48, binning_eta, 80, binning_mass)
+# For Trigger
+if(args.efficiency == 1):
+    model_pass_trig = ROOT.RDF.TH3DModel("Trigger_pass", "Trigger_pass", 15, binning_pt, 48, binning_eta, 80, binning_mass)
+    model_fail_trig = ROOT.RDF.TH3DModel("Trigger_fail", "Trigger_fail", 15, binning_pt, 48, binning_eta, 80, binning_mass)
 
-pass_histogram = iso_df.Define("Probe_pt_pass","Probe_pt[Probe_isolation<0.15]").Define("Probe_eta_pass","Probe_eta[Probe_isolation<0.15]").Define("TPmass_pass","TPmass[Probe_isolation<0.15]").Histo3D(model_pass,"Probe_pt_pass","Probe_eta_pass","TPmass_pass","weight")
-fail_histogram = iso_df.Define("Probe_pt_fail","Probe_pt[Probe_isolation>0.15]").Define("Probe_eta_fail","Probe_eta[Probe_isolation>0.15]").Define("TPmass_fail","TPmass[Probe_isolation>0.15]").Histo3D(model_fail,"Probe_pt_fail","Probe_eta_fail","TPmass_fail","weight")
+    pass_histogram_trig = d.Define("Probe_pt_pass","Probe_pt[Probe_isTriggered]").Define("Probe_eta_pass","Probe_eta[Probe_isTriggered]").Define("TPmass_pass","TPmass[Probe_isTriggered]").Histo3D(model_pass_trig,"Probe_pt_pass","Probe_eta_pass","TPmass_pass","weight")
 
-f_out = ROOT.TFile("Steve.root","RECREATE")
-pass_histogram.Write()
-fail_histogram.Write()
+    fail_histogram_trig = d.Define("Probe_pt_fail","Probe_pt[!Probe_isTriggered]").Define("Probe_eta_fail","Probe_eta[!Probe_isTriggered]").Define("TPmass_fail","TPmass[!Probe_isTriggered]").Histo3D(model_fail_trig,"Probe_pt_fail","Probe_eta_fail","TPmass_fail","weight")
+
+    pass_histogram_trig.Write()
+    fail_histogram_trig.Write()
+
+##For Isolation
+
+if(args.efficiency == 2):
+    model_pass_iso = ROOT.RDF.TH3DModel("Isolation_pass", "Isolation_pass", 15, binning_pt, 48, binning_eta, 80, binning_mass)
+    model_fail_iso = ROOT.RDF.TH3DModel("Isolation_fail", "Isolation_fail", 15, binning_pt, 48, binning_eta, 80, binning_mass)
+    
+    d = d.Redefine("TPmass","TPmass[Probe_isTriggered]").Redefine("Probe_pt","Probe_pt[Probe_isTriggered]").Redefine("Probe_eta","Probe_eta[Probe_isTriggered]").Redefine("Probe_isolation","Probe_isolation[Probe_isTriggered]")
+ 
+    pass_histogram_iso = d.Define("Probe_pt_pass","Probe_pt[Probe_isolation<0.15]").Define("Probe_eta_pass","Probe_eta[Probe_isolation<0.15]").Define("TPmass_pass","TPmass[Probe_isolation<0.15]").Histo3D(model_pass_iso,"Probe_pt_pass","Probe_eta_pass","TPmass_pass","weight")
+    fail_histogram_iso = d.Define("Probe_pt_fail","Probe_pt[Probe_isolation>0.15]").Define("Probe_eta_fail","Probe_eta[Probe_isolation>0.15]").Define("TPmass_fail","TPmass[Probe_isolation>0.15]").Histo3D(model_fail_iso,"Probe_pt_fail","Probe_eta_fail","TPmass_fail","weight")
+
+    pass_histogram_iso.Write()
+    fail_histogram_iso.Write()
+
+
+
+
+
+
+
 f_out.Close()
 
 elapsed = time.time() - tstart

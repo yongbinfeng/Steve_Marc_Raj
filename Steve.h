@@ -41,7 +41,7 @@ ROOT::VecOps::RVec<std::pair<int,int>> CreateTPPair(ROOT::VecOps::RVec<Int_t> &M
     for(int iLep2=0; iLep2<Muon_charge.size(); iLep2++){
       if (iLep2==iLep1) continue;
       if(!isProbe[iLep2]) continue;
-      if(!isTriggeredMuon[iLep2]) continue;
+      //if(!isTriggeredMuon[iLep2]) continue;
       if(!isGenMatchedMuon[iLep2]) continue;
       //#if(Muon_charge[iLep1] == Muon_charge[iLep2]) continue;
 
