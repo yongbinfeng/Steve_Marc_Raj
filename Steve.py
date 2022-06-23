@@ -1,132 +1,93 @@
 import ROOT
+from array import array
 
-
-
-
-#ROOT.gInterpreter.ProcessLine(".O3")
+ROOT.gInterpreter.ProcessLine(".O3")
 ROOT.ROOT.EnableImplicitMT()
-#ROOT.gInterpreter.Declare('#include "somestuff.h"')
+ROOT.gInterpreter.Declare('#include "Steve.h"')
+from os import listdir
+from os.path import isfile,join
+
+import time
+
+tstart = time.time()
+cpustrat = time.process_time()
+
+files=[]
+
+dirnames=["/scratchnvme/rbhattac/TNP_NanoAOD/DY_postVFP_NanoV8MC_TagAndProbe/220405_123536/0000","/scratchnvme/rbhattac/TNP_NanoAOD/DY_postVFP_NanoV8MC_TagAndProbe/220405_123536/0001","/scratchnvme/rbhattac/TNP_NanoAOD/DY_postVFP_NanoV8MC_TagAndProbe/220405_123536/0002","/scratchnvme/rbhattac/TNP_NanoAOD/DY_postVFP_NanoV8MC_TagAndProbe/220405_123536/0003"]
+
+for dirname in dirnames:
+    for f in listdir(dirname):
+        if f.endswith(".root"):
+            files.append(join(dirname, f))
 
 
-CreateTPPair_code = '''
-using namespace ROOT::VecOps;
-ROOT::VecOps::RVec<std::pair<int,int>> CreateTPPair(ROOT::VecOps::RVec<Int_t> &Muon_charge,ROOT::VecOps::RVec<Int_t> &isInAcceptance, ROOT::VecOps::RVec<Int_t> &isTag ){
-    ROOT::VecOps::RVec<std::pair<int,int>> TP_pairs;
-    for(int iLep1=0; iLep1<Muon_charge.size();iLep1++){
-        if(!isInAcceptance[iLep1]) continue;
-        if(!isTag[iLep1]) continue;
+print(files)
+filenames = ROOT.std.vector('string')()
 
-        
-        
+for name in files: filenames.push_back(name)
 
-        for(int iLep2=0; iLep2<Muon_charge.size(); iLep2++){
-            if (iLep2==iLep1) continue;
-            if(!isInAcceptance[iLep2]) continue;
-            if(Muon_charge[iLep1] == Muon_charge[iLep2]) continue;
+d = ROOT.RDataFrame("Events",filenames )
 
-            std::pair<int,int> TP_pair = std::make_pair(iLep1,iLep2); 
-            TP_pairs.push_back(TP_pair);
-        }
+d = d.Filter("HLT_IsoMu24 || HLT_IsoTkMu24")
 
-    }
-    return TP_pairs;
-}
+d = d.Filter("PV_npvsGood >= 1")
 
-'''
-ROOT.gInterpreter.Declare(CreateTPPair_code)
+d = d.Define("isProbe","Muon_pt > 15 && Muon_standalonePt > 15 && abs(Muon_eta) < 2.4")
 
-get_TP_variables = '''
+d = d.Define("isTriggeredMuon","hasTriggerMatch(Muon_eta,Muon_phi,TrigObj_id,TrigObj_pt,TrigObj_l1pt,TrigObj_l2pt,TrigObj_filterBits,TrigObj_eta,TrigObj_phi)")
 
-ROOT::VecOps::RVec<Float_t> getTPmass(ROOT::VecOps::RVec<std::pair<int,int>> TPPairs, ROOT::VecOps::RVec<Float_t> &Muon_pt,ROOT::VecOps::RVec<Float_t> &Muon_eta,ROOT::VecOps::RVec<Float_t> &Muon_phi){
-    ROOT::VecOps::RVec<Float_t> TPMass;
-    for (int i=0;i<TPPairs.size();i++){
-        std::pair<int,int> TPPair = TPPairs.at(i);
-        int tag_index = TPPair.first;
-        int probe_index = TPPair.second;
-        TLorentzVector tagLep(0,0,0,0);
-        tagLep.SetPtEtaPhiM(Muon_pt[tag_index],Muon_eta[tag_index],Muon_phi[tag_index],0);
-        TLorentzVector probeLep(0,0,0,0);
-        probeLep.SetPtEtaPhiM(Muon_pt[probe_index],Muon_eta[probe_index],Muon_phi[probe_index],0);
-        TPMass.push_back((tagLep+probeLep).M());        
-    }
-    return TPMass;
-}
+d = d.Define("isGenMatchedMuon","hasGenMatch(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,Muon_eta,Muon_phi)")
+
+d = d.Define("isTag","Muon_pt > 25 && abs(Muon_eta) < 2.4 && Muon_pfRelIso04_all < 0.15 && abs(Muon_dxybs) < 0.05 && Muon_mediumId && Muon_isGlobal")
+
+d = d.Define("weight","clipGenWeight(genWeight)") #for now (testing)
 
 
-ROOT::VecOps::RVec<Float_t> getTagVariables(ROOT::VecOps::RVec<std::pair<int,int>> TPPairs, ROOT::VecOps::RVec<Float_t> &Muon_variable){
-    ROOT::VecOps::RVec<Float_t> TagVariables;
-    for (int i=0;i<TPPairs.size();i++){
-        std::pair<int,int> TPPair = TPPairs.at(i);
-        int tag_index = TPPair.first;
-        float tag_variable = Muon_variable[tag_index];
-        TagVariables.push_back(tag_variable);
-    }
-    return TagVariables;
-}
+d = d.Define("All_TPPairs","CreateTPPair(Muon_charge,isProbe,isTag,isTriggeredMuon,isGenMatchedMuon)")
 
-ROOT::VecOps::RVec<Int_t> getTagVariables(ROOT::VecOps::RVec<std::pair<int,int>> TPPairs, ROOT::VecOps::RVec<Int_t> &Muon_variable){
-    ROOT::VecOps::RVec<Int_t> TagVariables;
-    for (int i=0;i<TPPairs.size();i++){
-        std::pair<int,int> TPPair = TPPairs.at(i);
-        int tag_index = TPPair.first;
-        float tag_variable = Muon_variable[tag_index];
-        TagVariables.push_back(tag_variable);
-    }
-    return TagVariables;
-}
+d = d.Define("All_TPmass","getTPmass(All_TPPairs,Muon_pt,Muon_eta,Muon_phi)")
 
-ROOT::VecOps::RVec<Float_t> getProbeVariables(ROOT::VecOps::RVec<std::pair<int,int>> TPPairs, ROOT::VecOps::RVec<Float_t> &Muon_variable){
-    ROOT::VecOps::RVec<Float_t> ProbeVariables;
-    for (int i=0;i<TPPairs.size();i++){
-        std::pair<int,int> TPPair = TPPairs.at(i);
-        int probe_index = TPPair.second;
-        float probe_variable = Muon_variable[probe_index];
-        ProbeVariables.push_back(probe_variable);
-    }
-    return ProbeVariables;
-}
+d = d.Define("TPPairs","All_TPPairs[All_TPmass >40 && All_TPmass < 140]").Define("TPmass","All_TPmass[All_TPmass > 40 && All_TPmass < 140]")
+d = d.Define("Is_Pair_OS","isOS(TPPairs,Muon_charge)")
 
+d = d.Define("Probe_pt","getVariables(TPPairs,Muon_pt,2)")
 
-ROOT::VecOps::RVec<Int_t> getProbeVariables(ROOT::VecOps::RVec<std::pair<int,int>> TPPairs, ROOT::VecOps::RVec<Int_t> &Muon_variable){
-    ROOT::VecOps::RVec<Int_t> ProbeVariables;
-    for (int i=0;i<TPPairs.size();i++){
-        std::pair<int,int> TPPair = TPPairs.at(i);
-        int probe_index = TPPair.second;
-        float probe_variable = Muon_variable[probe_index];
-        ProbeVariables.push_back(probe_variable);
-    }
-    return ProbeVariables;
-}
-'''
+d = d.Define("Probe_eta","getVariables(TPPairs,Muon_eta,2)")
 
-ROOT.gInterpreter.Declare(get_TP_variables)
+d = d.Define("Probe_phi","getVariables(TPPairs,Muon_phi,2)")
 
+d = d.Define("Probe_isolation","getVariables(TPPairs,Muon_pfRelIso04_all,2)")
 
-d = ROOT.RDataFrame("Events","/scratchnvme/rbhattac/TNP_NanoAOD/SingleMuon/test_457.root" )
+d = d.Define("Probe_isGlobal","getVariables(TPPairs,Muon_isGlobal,2)")
 
-d = d.Define("isInAcceptance","Muon_pt > 15 && Muon_standalonePt > 15 && abs(Muon_eta) < 2.4")
+d = d.Define("Probe_isStandalone","getVariables(TPPairs,Muon_isStandalone,2)")
 
-d = d.Define("isTag","Muon_pt > 25 && abs(Muon_eta) < 2.4 && Muon_pfRelIso04_all > 0.15 && abs(Muon_dxybs) > 0.05 && Muon_mediumId && Muon_isGlobal")
+d = d.Define("Probe_mediumId","getVariables(TPPairs,Muon_mediumId,2)")
 
-d = d.Define("weight","1") #for now (testing)
+d = d.Define("Probe_dxbs","getVariables(TPPairs,Muon_dxybs,2)")
 
+##For Isolation
 
-d = d.Define("TPPairs","CreateTPPair(Muon_charge,isInAcceptance,isTag)")
+iso_df = d.Redefine("TPmass","TPmass[Probe_mediumId && abs(Probe_dxbs) < 0.05]").Redefine("Probe_pt","Probe_pt[Probe_mediumId && abs(Probe_dxbs) < 0.05]").Redefine("Probe_eta","Probe_eta[Probe_mediumId && abs(Probe_dxbs) < 0.05]").Redefine("Probe_isolation","Probe_isolation[Probe_mediumId && abs(Probe_dxbs) < 0.05]").Redefine("Probe_isGlobal","Probe_isGlobal[Probe_mediumId && abs(Probe_dxbs) < 0.05]")
+iso_df = iso_df.Redefine("TPmass","TPmass[Probe_isGlobal]").Redefine("Probe_pt","Probe_pt[Probe_isGlobal]").Redefine("Probe_eta","Probe_eta[Probe_isGlobal]").Redefine("Probe_isolation","Probe_isolation[Probe_isGlobal]")
 
-d = d.Define("TPmass","getTPmass(TPPairs,Muon_pt,Muon_eta,Muon_phi)")
+binning_pt = array('d',[24., 26., 28., 30., 32., 34., 36., 38., 40., 42., 44., 47., 50., 55., 60., 65.])
+binning_eta = array('d',[-2.4 + i*0.1 for i in range(49)])
+binning_mass = array('d',[50 + i for i in range(81)])
 
-d = d.Define("Probe_pt","getProbeVariables(TPPairs,Muon_pt)")
+model_pass = ROOT.RDF.TH3DModel("Isolation_pass", "Isolation_pass", 15, binning_pt, 48, binning_eta, 80, binning_mass)
+model_fail = ROOT.RDF.TH3DModel("Isolation_fail", "Isolation_fail", 15, binning_pt, 48, binning_eta, 80, binning_mass)
 
-d = d.Define("Probe_eta","getProbeVariables(TPPairs,Muon_eta)")
+pass_histogram = iso_df.Define("Probe_pt_pass","Probe_pt[Probe_isolation<0.15]").Define("Probe_eta_pass","Probe_eta[Probe_isolation<0.15]").Define("TPmass_pass","TPmass[Probe_isolation<0.15]").Histo3D(model_pass,"Probe_pt_pass","Probe_eta_pass","TPmass_pass","weight")
+fail_histogram = iso_df.Define("Probe_pt_fail","Probe_pt[Probe_isolation>0.15]").Define("Probe_eta_fail","Probe_eta[Probe_isolation>0.15]").Define("TPmass_fail","TPmass[Probe_isolation>0.15]").Histo3D(model_fail,"Probe_pt_fail","Probe_eta_fail","TPmass_fail","weight")
 
-d = d.Define("Probe_phi","getProbeVariables(TPPairs,Muon_phi)")
-
-d = d.Define("Probe_isolation","getProbeVariables(TPPairs,Muon_pfRelIso04_all)")
-
-pass_histogram = d.Define("Probe_pt_pass","Probe_pt[Probe_isolation<0.15 && (TPmass > 40 && TPmass<140)]").Define("Probe_eta_pass","Probe_eta[Probe_isolation<0.15 && (TPmass > 40 && TPmass<140)]").Define("TPmass_pass","TPmass[Probe_isolation<0.15 && (TPmass > 40 && TPmass<140)]").Histo3D(("Isolation_pass", "Isolation_pass", 20, 15., 35., 50, -2.5, 2.5, 100, 40., 140.),"Probe_pt_pass","Probe_eta_pass","TPmass_pass")
-fail_histogram = d.Define("Probe_pt_fail","Probe_pt[Probe_isolation>0.15 && (TPmass > 40 && TPmass<140)]").Define("Probe_eta_fail","Probe_eta[Probe_isolation>0.15 && (TPmass > 40 && TPmass<140)]").Define("TPmass_fail","TPmass[Probe_isolation>0.15 && (TPmass > 40 && TPmass<140)]").Histo3D(("Isolation_fail", "Isolation_fail", 20, 15., 35., 50, -2.5, 2.5, 100, 40., 140.),"Probe_pt_fail","Probe_eta_fail","TPmass_fail")
-
-f_out = ROOT.TFile("test.root","RECREATE")
+f_out = ROOT.TFile("Steve.root","RECREATE")
 pass_histogram.Write()
 fail_histogram.Write()
 f_out.Close()
+
+elapsed = time.time() - tstart
+elapsed_cpu = time.process_time() - cpustrat
+print('Execution time:', elapsed, 'seconds')
+print('CPU Execution time:', elapsed_cpu , 'seconds')
