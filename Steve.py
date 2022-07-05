@@ -1,5 +1,6 @@
 import ROOT
 from array import array
+import json
 
 ROOT.gInterpreter.ProcessLine(".O3")
 ROOT.ROOT.EnableImplicitMT()
@@ -13,15 +14,38 @@ import time
 import argparse
 
 
+def make_jsonhelper(filename):
+    with open(filename) as jsonfile:
+        jsondata = json.load(jsonfile)
+    
+    runs = []
+    firstlumis = []
+    lastlumis = []
+    
+    for run,lumipairs in jsondata.items():
+        for lumipair in lumipairs:
+            runs.append(int(run))
+            firstlumis.append(int(lumipair[0]))
+            lastlumis.append(int(lumipair[1]))
+    
+    jsonhelper = ROOT.JsonHelper(runs, firstlumis, lastlumis)
+    
+    return jsonhelper
+
 parser = argparse.ArgumentParser()
 
-parser.add_argument("-e","--efficiency", help="1 for reco,3 for trigger, 3 for isolation",
+parser.add_argument("-e","--efficiency", help="1 for reco,2 for trigger, 3 for isolation",
                     type=int)
 parser.add_argument("-i","--input_path", help="path of the input root files",
                     type=str)
 
 parser.add_argument("-o","--output_file", help="name of the output root file",
                     type=str)
+
+parser.add_argument("-d","--isData", help="Pass 0 for MC, 1 for Data, default is 0",
+                    type=int, default=0)
+
+
 args = parser.parse_args()
 tstart = time.time()
 cpustrat = time.process_time()
@@ -60,13 +84,28 @@ d = d.Filter("HLT_IsoMu24 || HLT_IsoTkMu24","HLT Cut")
 
 d = d.Filter("PV_npvsGood >= 1","NVtx Cut")
 
+if (args.isData == 1):
+    jsonhelper = make_jsonhelper("Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt")
+    d = d.Filter(jsonhelper,["run","luminosityBlock"],"jsonfilter")
 
-d = d.Define("weight","clipGenWeight(genWeight)") #for now (testing)
+## Weights
+
+if(args.isData == 1):
+    d = d.Define("weight","1")
+else:
+    d = d.Define("gen_weight","clipGenWeight(genWeight)") #for now (testing)
+
+    d = d.Define("pu_weight","puw_2016(Pileup_nTrueInt,2)")
+
+    d = d.Define("weight","gen_weight*pu_weight")
 
 ## For Tag Muons
 d = d.Define("isTriggeredMuon","hasTriggerMatch(Muon_eta,Muon_phi,TrigObj_id,TrigObj_pt,TrigObj_l1pt,TrigObj_l2pt,TrigObj_filterBits,TrigObj_eta,TrigObj_phi)")
 
-d = d.Define("isGenMatchedMuon","hasGenMatch(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,Muon_eta,Muon_phi)")
+if(args.isData == 1):
+    d = d.Define("isGenMatchedMuon","createTrues(nMuon)")
+else: 
+    d = d.Define("isGenMatchedMuon","hasGenMatch(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,Muon_eta,Muon_phi)")
 
 d = d.Define("isTag","Muon_pt > 25 && abs(Muon_eta) < 2.4 && Muon_pfRelIso04_all < 0.15 && abs(Muon_dxybs) < 0.05 && Muon_mediumId && Muon_isGlobal")
 
@@ -75,7 +114,10 @@ d = d.Define("isTag","Muon_pt > 25 && abs(Muon_eta) < 2.4 && Muon_pfRelIso04_all
 if(args.efficiency == 1):
     d = d.Define("trackHasStandAloneorGlobalMatch","hasStandAloneOrGlobalMatch(Track_eta,Track_phi,Muon_eta,Muon_phi,Muon_isStandalone,Muon_isGlobal)")
 
-    d = d.Define("isGenMatchedTrack","hasGenMatch(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,Track_eta,Track_phi)")
+    if(args.isData == 1):
+        d = d.Define("isGenMatchedTrack","createTrues(nTrack)")
+    else:
+        d = d.Define("isGenMatchedTrack","hasGenMatch(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,Track_eta,Track_phi)")
 
     d = d.Define("trackMuonDR","trackMuonDR(Track_eta,Track_phi,Muon_eta,Muon_phi)")
 
@@ -182,6 +224,8 @@ else:
 
 
 f_out.Close()
+
+print(d.Report().Print())
 
 elapsed = time.time() - tstart
 elapsed_cpu = time.process_time() - cpustrat
