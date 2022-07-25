@@ -50,6 +50,12 @@ args = parser.parse_args()
 tstart = time.time()
 cpustrat = time.process_time()
 
+
+if args.isData == 1:
+    histo_name= "RunGtoH"
+else:
+    histo_name = "DY_postVFP"
+
 files=[]
 
 #dirnames=["/scratchnvme/rbhattac/TNP_NanoAOD/DY_postVFP_NanoV8MC_TagAndProbe/220405_123536/0000","/scratchnvme/rbhattac/TNP_NanoAOD/DY_postVFP_NanoV8MC_TagAndProbe/220405_123536/0001","/scratchnvme/rbhattac/TNP_NanoAOD/DY_postVFP_NanoV8MC_TagAndProbe/220405_123536/0002","/scratchnvme/rbhattac/TNP_NanoAOD/DY_postVFP_NanoV8MC_TagAndProbe/220405_123536/0003"]
@@ -140,13 +146,13 @@ if(args.efficiency == 1):
 
     d = d.Define("Probe_StandaloneDR","getVariables(TPPairs,trackStandaloneDR,2)")
 
+    
+    model_pass_reco = ROOT.RDF.TH3DModel("pass_mu_"+histo_name, "Reco_pass",len(binning_mass)-1, binning_mass, len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta)
+    model_fail_reco = ROOT.RDF.TH3DModel("fail_mu_"+histo_name, "Reco_fail",len(binning_mass)-1, binning_mass, len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta)
 
-    model_pass_reco = ROOT.RDF.TH3DModel("Reco_pass", "Reco_pass", len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta, len(binning_mass)-1, binning_mass)
-    model_fail_reco = ROOT.RDF.TH3DModel("Reco_fail", "Reco_fail", len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta, len(binning_mass)-1, binning_mass)
+    pass_histogram_reco = d.Define("Probe_pt_pass","Probe_pt[Probe_StandaloneDR<0.3]").Define("Probe_eta_pass","Probe_eta[Probe_StandaloneDR<0.3]").Define("TPmass_pass","TPmass[Probe_StandaloneDR<0.3]").Histo3D(model_pass_reco,"TPmass_pass","Probe_pt_pass","Probe_eta_pass","weight")
 
-    pass_histogram_reco = d.Define("Probe_pt_pass","Probe_pt[Probe_StandaloneDR<0.3]").Define("Probe_eta_pass","Probe_eta[Probe_StandaloneDR<0.3]").Define("TPmass_pass","TPmass[Probe_StandaloneDR<0.3]").Histo3D(model_pass_reco,"Probe_pt_pass","Probe_eta_pass","TPmass_pass","weight")
-
-    fail_histogram_reco = d.Define("Probe_pt_fail","Probe_pt[Probe_StandaloneDR>0.3]").Define("Probe_eta_fail","Probe_eta[Probe_StandaloneDR>0.3]").Define("TPmass_fail","TPmass[Probe_StandaloneDR>0.3]").Histo3D(model_fail_reco,"Probe_pt_fail","Probe_eta_fail","TPmass_fail","weight")
+    fail_histogram_reco = d.Define("Probe_pt_fail","Probe_pt[Probe_StandaloneDR>0.3]").Define("Probe_eta_fail","Probe_eta[Probe_StandaloneDR>0.3]").Define("TPmass_fail","TPmass[Probe_StandaloneDR>0.3]").Histo3D(model_fail_reco,"TPmass_fail","Probe_pt_fail","Probe_eta_fail","weight")
 
     pass_histogram_reco.Write()
     fail_histogram_reco.Write()
@@ -193,12 +199,12 @@ else:
 
     # For Trigger
     if(args.efficiency == 2):
-        model_pass_trig = ROOT.RDF.TH3DModel("Trigger_pass", "Trigger_pass", len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta, len(binning_mass)-1, binning_mass)
-        model_fail_trig = ROOT.RDF.TH3DModel("Trigger_fail", "Trigger_fail", len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta, len(binning_mass)-1, binning_mass)
+        model_pass_trig = ROOT.RDF.TH3DModel("pass_mu_"+histo_name, "Trigger_pass",len(binning_mass)-1, binning_mass, len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta)
+        model_fail_trig = ROOT.RDF.TH3DModel("fail_mu_"+histo_name, "Trigger_fail",len(binning_mass)-1, binning_mass, len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta)
 
-        pass_histogram_trig = d.Define("Probe_pt_pass","Probe_pt[Probe_isTriggered]").Define("Probe_eta_pass","Probe_eta[Probe_isTriggered]").Define("TPmass_pass","TPmass[Probe_isTriggered]").Histo3D(model_pass_trig,"Probe_pt_pass","Probe_eta_pass","TPmass_pass","weight")
+        pass_histogram_trig = d.Define("Probe_pt_pass","Probe_pt[Probe_isTriggered]").Define("Probe_eta_pass","Probe_eta[Probe_isTriggered]").Define("TPmass_pass","TPmass[Probe_isTriggered]").Histo3D(model_pass_trig,"TPmass_pass","Probe_pt_pass","Probe_eta_pass","weight")
 
-        fail_histogram_trig = d.Define("Probe_pt_fail","Probe_pt[!Probe_isTriggered]").Define("Probe_eta_fail","Probe_eta[!Probe_isTriggered]").Define("TPmass_fail","TPmass[!Probe_isTriggered]").Histo3D(model_fail_trig,"Probe_pt_fail","Probe_eta_fail","TPmass_fail","weight")
+        fail_histogram_trig = d.Define("Probe_pt_fail","Probe_pt[!Probe_isTriggered]").Define("Probe_eta_fail","Probe_eta[!Probe_isTriggered]").Define("TPmass_fail","TPmass[!Probe_isTriggered]").Histo3D(model_fail_trig,"TPmass_fail","Probe_pt_fail","Probe_eta_fail","weight")
 
         pass_histogram_trig.Write()
         fail_histogram_trig.Write()
@@ -206,13 +212,13 @@ else:
      ##For Isolation
 
     if(args.efficiency == 3):
-         model_pass_iso = ROOT.RDF.TH3DModel("Isolation_pass", "Isolation_pass", len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta, len(binning_mass)-1, binning_mass)
-         model_fail_iso = ROOT.RDF.TH3DModel("Isolation_fail", "Isolation_fail", len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta, len(binning_mass)-1, binning_mass)
+         model_pass_iso = ROOT.RDF.TH3DModel("pass_mu_"+histo_name, "Isolation_pass",len(binning_mass)-1, binning_mass, len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta)
+         model_fail_iso = ROOT.RDF.TH3DModel("fail_mu_"+histo_name, "Isolation_fail",len(binning_mass)-1, binning_mass, len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta)
     
          d = d.Redefine("TPmass","TPmass[Probe_isTriggered]").Redefine("Probe_pt","Probe_pt[Probe_isTriggered]").Redefine("Probe_eta","Probe_eta[Probe_isTriggered]").Redefine("Probe_isolation","Probe_isolation[Probe_isTriggered]")
  
-         pass_histogram_iso = d.Define("Probe_pt_pass","Probe_pt[Probe_isolation<0.15]").Define("Probe_eta_pass","Probe_eta[Probe_isolation<0.15]").Define("TPmass_pass","TPmass[Probe_isolation<0.15]").Histo3D(model_pass_iso,"Probe_pt_pass","Probe_eta_pass","TPmass_pass","weight")
-         fail_histogram_iso = d.Define("Probe_pt_fail","Probe_pt[Probe_isolation>0.15]").Define("Probe_eta_fail","Probe_eta[Probe_isolation>0.15]").Define("TPmass_fail","TPmass[Probe_isolation>0.15]").Histo3D(model_fail_iso,"Probe_pt_fail","Probe_eta_fail","TPmass_fail","weight")
+         pass_histogram_iso = d.Define("Probe_pt_pass","Probe_pt[Probe_isolation<0.15]").Define("Probe_eta_pass","Probe_eta[Probe_isolation<0.15]").Define("TPmass_pass","TPmass[Probe_isolation<0.15]").Histo3D(model_pass_iso,"TPmass_pass","Probe_pt_pass","Probe_eta_pass","weight")
+         fail_histogram_iso = d.Define("Probe_pt_fail","Probe_pt[Probe_isolation>0.15]").Define("Probe_eta_fail","Probe_eta[Probe_isolation>0.15]").Define("TPmass_fail","TPmass[Probe_isolation>0.15]").Histo3D(model_fail_iso,"TPmass_fail","Probe_pt_fail","Probe_eta_fail","weight")
 
          pass_histogram_iso.Write()
          fail_histogram_iso.Write()
