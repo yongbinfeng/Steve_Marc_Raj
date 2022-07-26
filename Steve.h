@@ -373,10 +373,7 @@ void saveHistograms(ROOT::RDF::RResultPtr<THnT<double> > histo_pass, ROOT::RDF::
   THnD Histo_fail=*(THnD*)histo_fail.GetPtr()->Clone();
   size_t found = output_file.find(std::string(".root"));
   for (unsigned int i=1; i<=Histo_pass.GetAxis(4)->GetNbins(); i++) {
-	std::string newoutputname;
-	for (unsigned int j=0; j<found; j++) {
-      newoutputname+=std::string(1,output_file[j]);
-    }
+	std::string newoutputname(output_file.substr(0,found));
     newoutputname+=std::string("_")+std::to_string(i)+std::string(".root");
     TFile f_out(newoutputname.c_str(),"RECREATE");
     Histo_pass.GetAxis(4)->SetRange(i,i);
