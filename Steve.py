@@ -144,7 +144,7 @@ if(args.efficiency == 1):
 
     d = d.Define("trackMuonDR","trackMuonDR(Track_eta,Track_phi,Muon_eta,Muon_phi)")
 
-    d = d.Define("trackStandaloneDR","trackStandaloneDR(Track_eta,Track_phi,Muon_standaloneEta,Muon_standalonePhi)")
+    d = d.Define("trackStandaloneDR","trackStandaloneDR(Track_eta,Track_phi,MergedStandAloneMuon_eta,MergedStandAloneMuon_phi)")
     d = d.Define("Probe_Tracks","CreateProbes_Track(Track_pt,Track_eta,Track_phi,Track_charge,Track_trackOriginalAlgo)")
 
     d = d.Define("All_TPPairs","CreateTPPair(Muon_charge,isTag,isTriggeredMuon,isGenMatchedMuon,Probe_Tracks,isGenMatchedTrack)")
