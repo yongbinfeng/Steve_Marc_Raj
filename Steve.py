@@ -52,7 +52,7 @@ args = parser.parse_args()
 tstart = time.time()
 cpustrat = time.process_time()
 
-if args.output_file.find('.root') == -1:
+if '.root' not in args.output_file:
     raise NameError('output_file name must end with \'.root\'')
 
 if args.isData == 1:
