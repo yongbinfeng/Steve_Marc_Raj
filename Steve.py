@@ -45,8 +45,7 @@ parser.add_argument("-o","--output_file", help="name of the output root file",
 parser.add_argument("-d","--isData", help="Pass 0 for MC, 1 for Data, default is 0",
                     type=int, default=0)
 
-parser.add_argument("-u","--zqtprojection", help="Efficiencies evaluated as a function of zqtprojection (only for trigger and isolation)",
-                    type=bool, default=False)
+parser.add_argument("-zqt","--zqtprojection", action="store_true", help="Efficiencies evaluated as a function of zqtprojection (only for trigger and isolation)")
 
 args = parser.parse_args()
 tstart = time.time()
