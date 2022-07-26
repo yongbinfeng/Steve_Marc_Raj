@@ -5,6 +5,7 @@
 #include "TLatex.h"
 #include "Math/Vector4D.h"
 #include "TStyle.h"
+#include <string>
 
 using namespace ROOT;
 using namespace ROOT::VecOps;
@@ -367,15 +368,27 @@ private:
   std::shared_ptr<jsonmap_t> jsonmap_;
 };
 
-void saveHistograms(ROOT::RDF::RResultPtr<THnT<double> > histo) {
-  THnD Histo=*(THnD*)histo.GetPtr()->Clone();
-  for (unsigned int i=1; i<=Histo.GetAxis(4)->GetNbins(); i++) {
-    Histo.GetAxis(4)->SetRange(i,i);
-    std::string name(Histo.GetName());
-	name+=std::string("_")+std::to_string(i);
-    TH3D* histo=(TH3D*)Histo.Projection(0,1,2);
-    histo->SetName(name.c_str());
-    histo->Write();
-    delete histo;
+void saveHistograms(ROOT::RDF::RResultPtr<THnT<double> > histo_pass, ROOT::RDF::RResultPtr<THnT<double> > histo_fail, std::string output_file) {
+  THnD Histo_pass=*(THnD*)histo_pass.GetPtr()->Clone();
+  THnD Histo_fail=*(THnD*)histo_fail.GetPtr()->Clone();
+  size_t found = output_file.find(std::string(".root"));
+  for (unsigned int i=1; i<=Histo_pass.GetAxis(4)->GetNbins(); i++) {
+	std::string newoutputname;
+	for (unsigned int j=0; j<found; j++) {
+      newoutputname+=std::string(1,output_file[j]);
+    }
+    newoutputname+=std::string("_")+std::to_string(i)+std::string(".root");
+    TFile f_out(newoutputname.c_str(),"RECREATE");
+    Histo_pass.GetAxis(4)->SetRange(i,i);
+    TH3D* histo_pass=(TH3D*)Histo_pass.Projection(0,1,2);
+    histo_pass->SetName(Histo_pass.GetName());
+    histo_pass->Write();
+    delete histo_pass;
+    Histo_fail.GetAxis(4)->SetRange(i,i);
+    TH3D* histo_fail=(TH3D*)Histo_fail.Projection(0,1,2);
+    histo_fail->SetName(Histo_fail.GetName());
+    histo_fail->Write();
+    delete histo_fail;
+    f_out.Close();
   }
 }

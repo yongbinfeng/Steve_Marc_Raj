@@ -45,6 +45,8 @@ parser.add_argument("-o","--output_file", help="name of the output root file",
 parser.add_argument("-d","--isData", help="Pass 0 for MC, 1 for Data, default is 0",
                     type=int, default=0)
 
+parser.add_argument("-u","--zqtprojection", help="Efficiencies evaluated as a function of zqtprojection (only for trigger and isolation)",
+                    type=bool, default=False)
 
 args = parser.parse_args()
 tstart = time.time()
@@ -266,60 +268,79 @@ else:
 
     # For Trigger
     if(args.efficiency == 4):
-        model_pass_trig = ROOT.RDF.THnDModel("pass_mu_"+histo_name, "Trigger_pass", 5, NBIN, XBINS)
-        model_fail_trig = ROOT.RDF.THnDModel("fail_mu_"+histo_name, "Trigger_fail", 5, NBIN, XBINS)
-        strings_pass = ROOT.std.vector('string')()
-        strings_pass.emplace_back("TPmass_pass")
-        strings_pass.emplace_back("Probe_pt_pass")
-        strings_pass.emplace_back("Probe_eta_pass")
-        strings_pass.emplace_back("Probe_charge_pass")
-        strings_pass.emplace_back("Probe_u_pass")
-        strings_pass.emplace_back("weight")
-        strings_fail = ROOT.std.vector('string')()
-        strings_fail.emplace_back("TPmass_fail")
-        strings_fail.emplace_back("Probe_pt_fail")
-        strings_fail.emplace_back("Probe_eta_fail")
-        strings_fail.emplace_back("Probe_charge_fail")
-        strings_fail.emplace_back("Probe_u_fail")
-        strings_fail.emplace_back("weight")
-
         d = d.Redefine("TPmass","TPmass[(Probe_mediumId&&(abs(Probe_dxybs)<0.05))]").Redefine("Probe_pt","Probe_pt[(Probe_mediumId&&(abs(Probe_dxybs)<0.05))]").Redefine("Probe_eta","Probe_eta[(Probe_mediumId&&(abs(Probe_dxybs)<0.05))]").Redefine("Probe_isTriggered","Probe_isTriggered[(Probe_mediumId&&(abs(Probe_dxybs)<0.05))]").Redefine("Probe_u","Probe_u[(Probe_mediumId&&(abs(Probe_dxybs)<0.05))]").Redefine("Probe_charge","Probe_charge[(Probe_mediumId&&(abs(Probe_dxybs)<0.05))]")
+        if (args.zqtprojection):
+            model_pass_trig = ROOT.RDF.THnDModel("pass_mu_"+histo_name, "Trigger_pass", 5, NBIN, XBINS)
+            model_fail_trig = ROOT.RDF.THnDModel("fail_mu_"+histo_name, "Trigger_fail", 5, NBIN, XBINS)
+            strings_pass = ROOT.std.vector('string')()
+            strings_pass.emplace_back("TPmass_pass")
+            strings_pass.emplace_back("Probe_pt_pass")
+            strings_pass.emplace_back("Probe_eta_pass")
+            strings_pass.emplace_back("Probe_charge_pass")
+            strings_pass.emplace_back("Probe_u_pass")
+            strings_pass.emplace_back("weight")
+            strings_fail = ROOT.std.vector('string')()
+            strings_fail.emplace_back("TPmass_fail")
+            strings_fail.emplace_back("Probe_pt_fail")
+            strings_fail.emplace_back("Probe_eta_fail")
+            strings_fail.emplace_back("Probe_charge_fail")
+            strings_fail.emplace_back("Probe_u_fail")
+            strings_fail.emplace_back("weight")
 
-        pass_histogram_trig = d.Define("Probe_pt_pass","Probe_pt[Probe_isTriggered]").Define("Probe_eta_pass","Probe_eta[Probe_isTriggered]").Define("Probe_charge_pass","Probe_charge[Probe_isTriggered]").Define("Probe_u_pass","Probe_u[Probe_isTriggered]").Define("TPmass_pass","TPmass[Probe_isTriggered]").HistoND(model_pass_trig,strings_pass)
+            pass_histogram_trig = d.Define("Probe_pt_pass","Probe_pt[Probe_isTriggered]").Define("Probe_eta_pass","Probe_eta[Probe_isTriggered]").Define("Probe_charge_pass","Probe_charge[Probe_isTriggered]").Define("Probe_u_pass","Probe_u[Probe_isTriggered]").Define("TPmass_pass","TPmass[Probe_isTriggered]").HistoND(model_pass_trig,strings_pass)
 
-        fail_histogram_trig = d.Define("Probe_pt_fail","Probe_pt[!Probe_isTriggered]").Define("Probe_eta_fail","Probe_eta[!Probe_isTriggered]").Define("Probe_charge_fail","Probe_charge[!Probe_isTriggered]").Define("Probe_u_fail","Probe_u[!Probe_isTriggered]").Define("TPmass_fail","TPmass[!Probe_isTriggered]").HistoND(model_fail_trig,strings_fail)
+            fail_histogram_trig = d.Define("Probe_pt_fail","Probe_pt[!Probe_isTriggered]").Define("Probe_eta_fail","Probe_eta[!Probe_isTriggered]").Define("Probe_charge_fail","Probe_charge[!Probe_isTriggered]").Define("Probe_u_fail","Probe_u[!Probe_isTriggered]").Define("TPmass_fail","TPmass[!Probe_isTriggered]").HistoND(model_fail_trig,strings_fail)
 
-        ROOT.saveHistograms(pass_histogram_trig)
-        ROOT.saveHistograms(fail_histogram_trig)
+            ROOT.saveHistograms(pass_histogram_trig,fail_histogram_trig,ROOT.std.string(args.output_file))
+
+        else:
+            model_pass_trig = ROOT.RDF.TH3DModel("pass_mu_"+histo_name, "Trigger_pass",len(binning_mass)-1, binning_mass, len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta)
+            model_fail_trig = ROOT.RDF.TH3DModel("fail_mu_"+histo_name, "Trigger_fail",len(binning_mass)-1, binning_mass, len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta)
+
+            pass_histogram_trig = d.Define("Probe_pt_pass","Probe_pt[Probe_isTriggered]").Define("Probe_eta_pass","Probe_eta[Probe_isTriggered]").Define("TPmass_pass","TPmass[Probe_isTriggered]").Histo3D(model_pass_trig,"TPmass_pass","Probe_pt_pass","Probe_eta_pass","weight")
+
+            fail_histogram_trig = d.Define("Probe_pt_fail","Probe_pt[!Probe_isTriggered]").Define("Probe_eta_fail","Probe_eta[!Probe_isTriggered]").Define("TPmass_fail","TPmass[!Probe_isTriggered]").Histo3D(model_fail_trig,"TPmass_fail","Probe_pt_fail","Probe_eta_fail","weight")
+
+            pass_histogram_trig.Write()
+            fail_histogram_trig.Write()
 
      ##For Isolation
 
     if(args.efficiency == 5):
-        model_pass_iso = ROOT.RDF.THnDModel("pass_mu_"+histo_name, "Isolation_pass", 5, NBIN, XBINS)
-        model_fail_iso = ROOT.RDF.THnDModel("fail_mu_"+histo_name, "Isolation_fail", 5, NBIN, XBINS)
-        strings_pass = ROOT.std.vector('string')()
-        strings_pass.emplace_back("TPmass_pass")
-        strings_pass.emplace_back("Probe_pt_pass")
-        strings_pass.emplace_back("Probe_eta_pass")
-        strings_pass.emplace_back("Probe_charge_pass")
-        strings_pass.emplace_back("Probe_u_pass")
-        strings_pass.emplace_back("weight")
-        strings_fail = ROOT.std.vector('string')()
-        strings_fail.emplace_back("TPmass_fail")
-        strings_fail.emplace_back("Probe_pt_fail")
-        strings_fail.emplace_back("Probe_eta_fail")
-        strings_fail.emplace_back("Probe_charge_fail")
-        strings_fail.emplace_back("Probe_u_fail")
-        strings_fail.emplace_back("weight")
-    
         d = d.Redefine("TPmass","TPmass[(Probe_mediumId&&(abs(Probe_dxybs)<0.05)&&Probe_isTriggered)]").Redefine("Probe_pt","Probe_pt[(Probe_mediumId&&(abs(Probe_dxybs)<0.05)&&Probe_isTriggered)]").Redefine("Probe_eta","Probe_eta[(Probe_mediumId&&(abs(Probe_dxybs)<0.05)&&Probe_isTriggered)]").Redefine("Probe_isolation","Probe_isolation[(Probe_mediumId&&(abs(Probe_dxybs)<0.05)&&Probe_isTriggered)]").Redefine("Probe_u","Probe_u[(Probe_mediumId&&(abs(Probe_dxybs)<0.05)&&Probe_isTriggered)]").Redefine("Probe_charge","Probe_charge[(Probe_mediumId&&(abs(Probe_dxybs)<0.05)&&Probe_isTriggered)]")
- 
-        pass_histogram_iso = d.Define("Probe_pt_pass","Probe_pt[Probe_isolation<0.15]").Define("Probe_eta_pass","Probe_eta[Probe_isolation<0.15]").Define("Probe_charge_pass","Probe_charge[Probe_isolation<0.15]").Define("Probe_u_pass","Probe_u[Probe_isolation<0.15]").Define("TPmass_pass","TPmass[Probe_isolation<0.15]").HistoND(model_pass_iso,strings_pass)
-        fail_histogram_iso = d.Define("Probe_pt_fail","Probe_pt[Probe_isolation>0.15]").Define("Probe_eta_fail","Probe_eta[Probe_isolation>0.15]").Define("Probe_charge_fail","Probe_charge[Probe_isolation>0.15]").Define("Probe_u_fail","Probe_u[Probe_isolation>0.15]").Define("TPmass_fail","TPmass[Probe_isolation>0.15]").HistoND(model_fail_iso,strings_fail)
 
-        ROOT.saveHistograms(pass_histogram_iso)
-        ROOT.saveHistograms(fail_histogram_iso)
+        if (args.zqtprojection):
+            model_pass_iso = ROOT.RDF.THnDModel("pass_mu_"+histo_name, "Isolation_pass", 5, NBIN, XBINS)
+            model_fail_iso = ROOT.RDF.THnDModel("fail_mu_"+histo_name, "Isolation_fail", 5, NBIN, XBINS)
+            strings_pass = ROOT.std.vector('string')()
+            strings_pass.emplace_back("TPmass_pass")
+            strings_pass.emplace_back("Probe_pt_pass")
+            strings_pass.emplace_back("Probe_eta_pass")
+            strings_pass.emplace_back("Probe_charge_pass")
+            strings_pass.emplace_back("Probe_u_pass")
+            strings_pass.emplace_back("weight")
+            strings_fail = ROOT.std.vector('string')()
+            strings_fail.emplace_back("TPmass_fail")
+            strings_fail.emplace_back("Probe_pt_fail")
+            strings_fail.emplace_back("Probe_eta_fail")
+            strings_fail.emplace_back("Probe_charge_fail")
+            strings_fail.emplace_back("Probe_u_fail")
+            strings_fail.emplace_back("weight")
+     
+            pass_histogram_iso = d.Define("Probe_pt_pass","Probe_pt[Probe_isolation<0.15]").Define("Probe_eta_pass","Probe_eta[Probe_isolation<0.15]").Define("Probe_charge_pass","Probe_charge[Probe_isolation<0.15]").Define("Probe_u_pass","Probe_u[Probe_isolation<0.15]").Define("TPmass_pass","TPmass[Probe_isolation<0.15]").HistoND(model_pass_iso,strings_pass)
+            fail_histogram_iso = d.Define("Probe_pt_fail","Probe_pt[Probe_isolation>0.15]").Define("Probe_eta_fail","Probe_eta[Probe_isolation>0.15]").Define("Probe_charge_fail","Probe_charge[Probe_isolation>0.15]").Define("Probe_u_fail","Probe_u[Probe_isolation>0.15]").Define("TPmass_fail","TPmass[Probe_isolation>0.15]").HistoND(model_fail_iso,strings_fail)
 
+            ROOT.saveHistograms(pass_histogram_iso,fail_histogram_iso,ROOT.std.string(args.output_file))
+
+        else:
+            model_pass_iso = ROOT.RDF.TH3DModel("pass_mu_"+histo_name, "Isolation_pass",len(binning_mass)-1, binning_mass, len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta)
+            model_fail_iso = ROOT.RDF.TH3DModel("fail_mu_"+histo_name, "Isolation_fail",len(binning_mass)-1, binning_mass, len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta)
+    
+            pass_histogram_iso = d.Define("Probe_pt_pass","Probe_pt[Probe_isolation<0.15]").Define("Probe_eta_pass","Probe_eta[Probe_isolation<0.15]").Define("TPmass_pass","TPmass[Probe_isolation<0.15]").Histo3D(model_pass_iso,"TPmass_pass","Probe_pt_pass","Probe_eta_pass","weight")
+            fail_histogram_iso = d.Define("Probe_pt_fail","Probe_pt[Probe_isolation>0.15]").Define("Probe_eta_fail","Probe_eta[Probe_isolation>0.15]").Define("TPmass_fail","TPmass[Probe_isolation>0.15]").Histo3D(model_fail_iso,"TPmass_fail","Probe_pt_fail","Probe_eta_fail","weight")
+
+            pass_histogram_iso.Write()
+            fail_histogram_iso.Write()
 
 
 
