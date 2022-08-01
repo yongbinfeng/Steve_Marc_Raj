@@ -261,7 +261,7 @@ RVec<Float_t> zqtprojection(RVec<std::pair<int,int>> &TPPairs, RVec<Float_t> &Mu
     TLorentzVector tag, probe;
     tag.SetPtEtaPhiM(Muon_pt[TPPair.first],Muon_eta[TPPair.first],Muon_phi[TPPair.first],0.);
     probe.SetPtEtaPhiM(Muon_pt[TPPair.second],Muon_eta[TPPair.second],Muon_phi[TPPair.second],0.);
-    TVector3 Tag(tag.Px(),tag.Py(),tag.Pz()), Probe(probe.Px(), probe.Py(), probe.Pz());
+    TVector3 Tag(tag.Px(),tag.Py(),0.), Probe(probe.Px(), probe.Py(), 0.);
     v.emplace_back((Tag+Probe).Dot(Probe)/sqrt(Probe.Dot(Probe)));
   }
   return v;
