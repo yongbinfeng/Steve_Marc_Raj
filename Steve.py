@@ -500,8 +500,8 @@ else:
                                       Define("TPmass_fail","TPmass[Probe_isolation>0.15]").
                                       Histo3D(model_fail_iso_noTrig,"TPmass_fail","Probe_pt_fail","Probe_eta_fail","weight")
 
-            pass_histogram_iso_noTrig.Write()
-            fail_histogram_iso_noTrig.Write()
+        pass_histogram_iso_noTrig.Write()
+        fail_histogram_iso_noTrig.Write()
 
 f_out.Close()
 
