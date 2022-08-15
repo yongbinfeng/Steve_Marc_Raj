@@ -272,3 +272,19 @@ RVec<bool> goodmuonisolation(RVec<float> &goodgeneta, RVec<float> &goodgenphi, R
   }
   return v;
 }
+
+RVec<float> postFSRgenzqtprojection(RVec<float> &goodgenpt, RVec<float> &goodgeneta, RVec<float> &goodgenphi) {
+  RVec<float> v;
+  for (auto i=0U; i<goodgenpt.size(); i++) {
+    TLorentzVector probe;
+    probe.SetPtEtaPhiM(goodgenpt[i],goodgeneta[i],goodgenphi[i],0.);
+    for (auto j=0U; j<goodgenpt.size(); j++) {
+      if (i==j) continue;
+      TLorentzVector tag;
+      tag.SetPtEtaPhiM(goodgenpt[j],goodgeneta[j],goodgenphi[j],0.);
+      TVector3 Tag(tag.Px(),tag.Py(),0.), Probe(probe.Px(),probe.Py(),0.);
+      v.emplace_back((Tag+Probe).Dot(Probe)/sqrt(Probe.Dot(Probe)));
+    }
+  }
+  return v;
+}

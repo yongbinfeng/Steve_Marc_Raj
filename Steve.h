@@ -288,7 +288,7 @@ RVec<Bool_t> Probe_isGlobal(RVec<std::pair<int,int>> &TPPairs, RVec<Int_t> &Merg
     int probe_index = TPPair.second;
     bool condition=false;
     for (auto j=0U; j<Muon_standaloneExtraIdx.size(); j++) {
-      if ((MergedStandAloneMuon_extraIdx[probe_index]==Muon_standaloneExtraIdx[j])&&(Muon_isGlobal[j])&&(Muon_pt[j]>15.)&&(Muon_standalonePt[j]>15.)&&(deltaR(Muon_eta[j],Muon_phi[j],Muon_standaloneEta[j],Muon_standalonePhi[j]))) condition=true;
+      if ((MergedStandAloneMuon_extraIdx[probe_index]==Muon_standaloneExtraIdx[j])&&(Muon_isGlobal[j])&&(Muon_pt[j]>15.)&&(Muon_standalonePt[j]>15.)&&(deltaR(Muon_eta[j],Muon_phi[j],Muon_standaloneEta[j],Muon_standalonePhi[j])<0.3)) condition=true;
     }
     isGlobal.push_back(condition);
   }
@@ -386,6 +386,28 @@ void saveHistograms(ROOT::RDF::RResultPtr<THnT<double> > histo_pass, ROOT::RDF::
     histo_fail->SetName(Histo_fail.GetName());
     histo_fail->Write();
     delete histo_fail;
+    f_out.Close();
+  }
+}
+
+void saveHistogramsGen(ROOT::RDF::RResultPtr<THnT<double> > histo_pass, ROOT::RDF::RResultPtr<THnT<double> > histo_norm, std::string output_file) {
+  THnD Histo_pass=*(THnD*)histo_pass.GetPtr()->Clone();
+  THnD Histo_norm=*(THnD*)histo_norm.GetPtr()->Clone();
+  size_t found = output_file.find(std::string(".root"));
+  for (unsigned int i=1; i<=Histo_pass.GetAxis(3)->GetNbins(); i++) {
+	std::string newoutputname(output_file.substr(0,found));
+    newoutputname+=std::string("_")+std::to_string(i)+std::string(".root");
+    TFile f_out(newoutputname.c_str(),"RECREATE");
+    Histo_pass.GetAxis(3)->SetRange(i,i);
+    TH2D* histo_pass=(TH2D*)Histo_pass.Projection(0,1);
+    histo_pass->SetName(Histo_pass.GetName());
+    histo_pass->Write();
+    delete histo_pass;
+    Histo_norm.GetAxis(3)->SetRange(i,i);
+    TH2D* histo_norm=(TH2D*)Histo_norm.Projection(0,1);
+    histo_norm->SetName(Histo_norm.GetName());
+    histo_norm->Write();
+    delete histo_norm;
     f_out.Close();
   }
 }
