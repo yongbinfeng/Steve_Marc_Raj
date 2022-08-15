@@ -437,7 +437,8 @@ else:
             pass_histogram_iso = d.Define("Probe_pt_pass","Probe_pt[Probe_isolation<0.15]").
                                    Define("Probe_eta_pass","Probe_eta[Probe_isolation<0.15]").
                                    Define("Probe_charge_pass","Probe_charge[Probe_isolation<0.15]").
-                                   Define("Probe_u_pass","Probe_u[Probe_isolation<0.15]").Define("TPmass_pass","TPmass[Probe_isolation<0.15]").
+                                   Define("Probe_u_pass","Probe_u[Probe_isolation<0.15]").
+                                   Define("TPmass_pass","TPmass[Probe_isolation<0.15]").
                                    HistoND(model_pass_iso,strings_pass)
            
             fail_histogram_iso = d.Define("Probe_pt_fail","Probe_pt[Probe_isolation>0.15]").
