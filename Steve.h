@@ -166,9 +166,9 @@ RVec<Bool_t> hasTriggerMatch(RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi, R
     bool hasTrigMatch = false;
     for (unsigned int iTrig=0; iTrig<TrigObj_id.size(); ++iTrig){
       if (TrigObj_id[iTrig]  != 13 ) continue;
-      if (TrigObj_pt[iTrig]   < 24.) continue;
-      if (TrigObj_l1pt[iTrig] < 22.) continue;
-      if (! (( TrigObj_filterBits[iTrig] & 8) || (TrigObj_l2pt[iTrig] > 10. && (TrigObj_filterBits[iTrig] & 2) )) ) continue;
+      #if (TrigObj_pt[iTrig]   < 24.) continue;
+      #if (TrigObj_l1pt[iTrig] < 22.) continue;
+      if (! (( TrigObj_filterBits[iTrig] & 16) || (TrigObj_filterBits[iTrig] & 32) ) ) continue;
       if (deltaR(Muon_eta[iMuon], Muon_phi[iMuon], TrigObj_eta[iTrig], TrigObj_phi[iTrig]) < 0.3) {
 	hasTrigMatch = true;
 	break;
