@@ -50,12 +50,17 @@ parser.add_argument("-zqt","--zqtprojection", action="store_true", help="Efficie
 
 parser.add_argument("-gen","--genLevelEfficiency", action="store_true", help="Compute MC truth efficiency")
 
+parser.add_argument("-tpg","--tnpGenLevel", action="store_true", help="Compute tag-and-probe efficiencies for MC as a function of postVFP gen variables")
+
 args = parser.parse_args()
 tstart = time.time()
 cpustrat = time.process_time()
 
 if args.isData & args.genLevelEfficiency:
     raise RuntimeError('\'genLevelEfficiency\' option not supported for data')
+
+if args.isData & args.tnpGenLevel:
+    raise RuntimeError('\'tnpGenLevel\' option not supported for data')
 
 if '.root' not in args.output_file:
     raise NameError('output_file name must end with \'.root\'')
@@ -94,7 +99,7 @@ binning_pt = array('d',[24., 26., 28., 30., 32., 34., 36., 38., 40., 42., 44., 4
 binning_eta = array('d',[-2.4 + i*0.1 for i in range(49)])
 binning_mass = array('d',[50 + i for i in range(81)])
 binning_charge = array('d',[-1.5,0,1.5])
-binning_u = array('d',[-100 + i*5 for i in range(41)])
+binning_u = array('d',[-100 + i*2 for i in range(101)])
 
 NBIN = ROOT.std.vector('int')()
 NBIN.push_back(len(binning_mass)-1)
@@ -156,6 +161,7 @@ if (args.genLevelEfficiency):
     d = d.Define("goodgenpt","goodgenvalue(GenPart_pt,GenPart_postFSRLepIdx1,GenPart_postFSRLepIdx2,GenPart_eta,GenPart_phi,GenPart_status,GenPart_pdgId)")
     d = d.Define("goodgeneta","goodgenvalue(GenPart_eta,GenPart_postFSRLepIdx1,GenPart_postFSRLepIdx2,GenPart_eta,GenPart_phi,GenPart_status,GenPart_pdgId)")
     d = d.Define("goodgenphi","goodgenvalue(GenPart_phi,GenPart_postFSRLepIdx1,GenPart_postFSRLepIdx2,GenPart_eta,GenPart_phi,GenPart_status,GenPart_pdgId)")
+    d = d.Define("goodgencharge","goodgencharge(GenPart_postFSRLepIdx1,GenPart_postFSRLepIdx2,GenPart_eta,GenPart_phi,GenPart_status,GenPart_pdgId)")
     d = d.Define("goodgenidx","goodgenidx(GenPart_pt,GenPart_postFSRLepIdx1,GenPart_postFSRLepIdx2,GenPart_eta,GenPart_phi,GenPart_status,GenPart_pdgId)")
     d = d.Define("postFSRgenzqtprojection","postFSRgenzqtprojection(goodgenpt,goodgeneta,goodgenphi)")
 
@@ -168,6 +174,7 @@ if(args.efficiency == 1):
             d = d.Define("isGenMatchedTrack","createTrues(nTrack)")
         else:
             d = d.Define("isGenMatchedTrack","hasGenMatch(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,Track_eta,Track_phi)")
+            d = d.Define("GenMatchedIdx","GenMatchedIdx(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,Track_eta,Track_phi)")
 
         d = d.Define("trackMuonDR","trackMuonDR(Track_eta,Track_phi,Muon_eta,Muon_phi)")
 
@@ -189,6 +196,10 @@ if(args.efficiency == 1):
         d = d.Define("Probe_phi","getVariables(TPPairs,Track_phi,2)")
 
         d = d.Define("Probe_StandaloneDR","getVariables(TPPairs,trackStandaloneDR,2)")
+        if (args.tnpGenLevel):
+            d = d.Redefine("Probe_pt","getGenVariables(TPPairs,GenMatchedIdx,GenPart_pt,2)")
+            d = d.Redefine("Probe_eta","getGenVariables(TPPairs,GenMatchedIdx,GenPart_eta,2)")
+            d = d.Redefine("Probe_phi","getGenVariables(TPPairs,GenMatchedIdx,GenPart_phi,2)")
 
     
         model_pass_reco = ROOT.RDF.TH3DModel("pass_mu_"+histo_name, "Reco_pass",len(binning_mass)-1, binning_mass, len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta)
@@ -203,8 +214,11 @@ if(args.efficiency == 1):
     else:
         d = d.Define("goodmuon","goodmuonreco(goodgeneta,goodgenphi,MergedStandAloneMuon_pt,MergedStandAloneMuon_eta,MergedStandAloneMuon_phi)").Define("newweight","weight*goodmuon")
 
-        pass_histogram_reco = d.Histo2D({"Pass","",len(binning_eta)-1,binning_eta,len(binning_pt)-1,binning_pt},"goodgeneta","goodgenpt","newweight")
-        pass_histogram_norm = d.Histo2D({"Norm","",len(binning_eta)-1,binning_eta,len(binning_pt)-1,binning_pt},"goodgeneta","goodgenpt","weight")
+        model_pass_reco = ROOT.RDF.TH2DModel("Pass","",len(binning_eta)-1,binning_eta,len(binning_pt)-1,binning_pt)
+        model_norm_reco = ROOT.RDF.TH2DModel("Norm","",len(binning_eta)-1,binning_eta,len(binning_pt)-1,binning_pt)
+
+        pass_histogram_reco = d.Histo2D(model_pass_reco,"goodgeneta","goodgenpt","newweight")
+        pass_histogram_norm = d.Histo2D(model_norm_reco,"goodgeneta","goodgenpt","weight")
 
         pass_histogram_reco.Write()
         pass_histogram_norm.Write()
@@ -217,6 +231,7 @@ elif (args.efficiency == 2):
             d = d.Define("isGenMatchedMergedStandMuon","createTrues(nMergedStandAloneMuon)")
         else:
             d = d.Define("isGenMatchedMergedStandMuon","hasGenMatch(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,MergedStandAloneMuon_eta,MergedStandAloneMuon_phi)")
+            d = d.Define("GenMatchedIdx","GenMatchedIdx(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,MergedStandAloneMuon_eta,MergedStandAloneMuon_phi)")
 
         d = d.Define("Probe_MergedStandMuons","CreateProbes_MergedStandMuons(MergedStandAloneMuon_pt,MergedStandAloneMuon_eta,MergedStandAloneMuon_phi)")
 
@@ -232,6 +247,11 @@ elif (args.efficiency == 2):
 
         d = d.Define("Probe_phi","getVariables(TPPairs,MergedStandAloneMuon_phi,2)")
 
+        if (args.tnpGenLevel):
+            d = d.Redefine("Probe_pt","getGenVariables(TPPairs,GenMatchedIdx,GenPart_pt,2)")
+            d = d.Redefine("Probe_eta","getGenVariables(TPPairs,GenMatchedIdx,GenPart_eta,2)")
+            d = d.Redefine("Probe_phi","getGenVariables(TPPairs,GenMatchedIdx,GenPart_phi,2)")
+
         d = d.Define("Probe_isGlobal","Probe_isGlobal(TPPairs,MergedStandAloneMuon_extraIdx,Muon_standaloneExtraIdx,Muon_isGlobal,Muon_pt,Muon_eta,Muon_phi,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi)")
 
         model_pass_reco = ROOT.RDF.TH3DModel("pass_mu_"+histo_name, "\"Tracking\"_pass",len(binning_mass)-1, binning_mass, len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta)
@@ -246,8 +266,11 @@ elif (args.efficiency == 2):
     else:
         d = d.Define("goodmuon","goodmuonglobal(goodgeneta,goodgenphi,Muon_pt,Muon_eta,Muon_phi,Muon_isGlobal,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi)").Define("newweight","weight*goodmuon")
 
-        pass_histogram_reco = d.Histo2D({"Pass","",len(binning_eta)-1,binning_eta,len(binning_pt)-1,binning_pt},"goodgeneta","goodgenpt","newweight")
-        pass_histogram_norm = d.Histo2D({"Norm","",len(binning_eta)-1,binning_eta,len(binning_pt)-1,binning_pt},"goodgeneta","goodgenpt","weight")
+        model_pass_reco = ROOT.RDF.TH2DModel("Pass","",len(binning_eta)-1,binning_eta,len(binning_pt)-1,binning_pt)
+        model_norm_reco = ROOT.RDF.TH2DModel("Norm","",len(binning_eta)-1,binning_eta,len(binning_pt)-1,binning_pt)
+
+        pass_histogram_reco = d.Histo2D(model_pass_reco,"goodgeneta","goodgenpt","newweight")
+        pass_histogram_norm = d.Histo2D(model_norm_reco,"goodgeneta","goodgenpt","weight")
 
         pass_histogram_reco.Write()
         pass_histogram_norm.Write()
@@ -256,6 +279,8 @@ elif (args.efficiency == 2):
 
 ## Muons for all other efficiency
 else:
+    d = d.Define("GenMatchedIdx","GenMatchedIdx(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,Muon_eta,Muon_phi)")
+
     d = d.Define("Probe_Muons","CreateProbes_Muon(Muon_pt,Muon_standalonePt,Muon_eta,Muon_phi,Muon_standaloneEta,Muon_standalonePhi,Muon_charge,Muon_mediumId,Muon_dxybs,Muon_isGlobal)")
 
 
@@ -291,6 +316,11 @@ else:
     d = d.Define("Probe_dxybs","getVariables(TPPairs,Muon_dxybs,2)")
 
     d = d.Define("Probe_u","zqtprojection(TPPairs,Muon_pt,Muon_eta,Muon_phi)")
+    if (args.tnpGenLevel):
+        d = d.Redefine("Probe_pt","getGenVariables(TPPairs,GenMatchedIdx,GenPart_pt,2)")
+        d = d.Redefine("Probe_eta","getGenVariables(TPPairs,GenMatchedIdx,GenPart_eta,2)")
+        d = d.Redefine("Probe_phi","getGenVariables(TPPairs,GenMatchedIdx,GenPart_phi,2)")
+        d = d.Redefine("Probe_u","zqtprojectionGen(TPPairs,GenMatchedIdx,GenPart_pt,GenPart_eta,GenPart_phi)")
 
 
     #iso_df = d.Redefine("TPmass","TPmass[Probe_mediumId && abs(Probe_dxybs) < 0.05 && Probe_isTriggered]").Redefine("Probe_pt","Probe_pt[Probe_mediumId && abs(Probe_dxybs) < 0.05 && Probe_isTriggered]").Redefine("Probe_eta","Probe_eta[Probe_mediumId && abs(Probe_dxybs) < 0.05 && Probe_isTriggered]").Redefine("Probe_isolation","Probe_isolation[Probe_mediumId && abs(Probe_dxybs) < 0.05 && Probe_isTriggered]").Redefine("Probe_isGlobal","Probe_isGlobal[Probe_mediumId && abs(Probe_dxybs) < 0.05 && Probe_isTriggered]")
@@ -309,10 +339,13 @@ else:
             pass_histogram_trig.Write()
             fail_histogram_trig.Write()
         else:
-            d = d.Define("goodmuon","goodmuonglobal(goodgeneta,goodgenphi,Muon_pt,Muon_eta,Muon_phi,Muon_isGlobal,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi,Muon_dxybs,Muon_isMedium)").Define("newweight","weight*goodmuon")
+            d = d.Define("goodmuon","goodmuonglobal(goodgeneta,goodgenphi,Muon_pt,Muon_eta,Muon_phi,Muon_isGlobal,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi,Muon_dxybs,Muon_mediumId)").Define("newweight","weight*goodmuon")
 
-            pass_histogram_reco = d.Histo2D({"Pass","",len(binning_eta)-1,binning_eta,len(binning_pt)-1,binning_pt},"goodgeneta","goodgenpt","newweight")
-            pass_histogram_norm = d.Histo2D({"Norm","",len(binning_eta)-1,binning_eta,len(binning_pt)-1,binning_pt},"goodgeneta","goodgenpt","weight")
+            model_pass_reco = ROOT.RDF.TH2DModel("Pass","",len(binning_eta)-1,binning_eta,len(binning_pt)-1,binning_pt)
+            model_norm_reco = ROOT.RDF.TH2DModel("Norm","",len(binning_eta)-1,binning_eta,len(binning_pt)-1,binning_pt)
+
+            pass_histogram_reco = d.Histo2D(model_pass_reco,"goodgeneta","goodgenpt","newweight")
+            pass_histogram_norm = d.Histo2D(model_norm_reco,"goodgeneta","goodgenpt","weight")
 
             pass_histogram_reco.Write()
             pass_histogram_norm.Write()
@@ -348,22 +381,22 @@ else:
                 model_pass_trig = ROOT.RDF.THnDModel("pass_mu_"+histo_name, "Trigger_pass", 4, GENNBIN, GENXBINS)
                 model_norm_trig = ROOT.RDF.THnDModel("norm_mu_"+histo_name, "Trigger_norm", 4, GENNBIN, GENXBINS)
                 strings_pass = ROOT.std.vector('string')()
-                strings_pass.emplace_back("Probe_pt_pass")
-                strings_pass.emplace_back("Probe_eta_pass")
-                strings_pass.emplace_back("Probe_charge_pass")
-                strings_pass.emplace_back("Probe_u_pass")
+                strings_pass.emplace_back("goodgenpt")
+                strings_pass.emplace_back("goodgeneta")
+                strings_pass.emplace_back("goodgencharge")
+                strings_pass.emplace_back("postFSRgenzqtprojection")
                 strings_pass.emplace_back("newweight")
                 strings_norm = ROOT.std.vector('string')()
-                strings_norm.emplace_back("Probe_pt_fail")
-                strings_norm.emplace_back("Probe_eta_fail")
-                strings_norm.emplace_back("Probe_charge_fail")
-                strings_norm.emplace_back("Probe_u_fail")
+                strings_norm.emplace_back("goodgenpt")
+                strings_norm.emplace_back("goodgeneta")
+                strings_norm.emplace_back("goodgencharge")
+                strings_norm.emplace_back("postFSRgenzqtprojection")
                 strings_norm.emplace_back("weight")
 
-                d = d.Define("goodmuon","goodmuontrigger(goodgeneta,goodgenphi,Muon_pt,Muon_eta,Muon_phi,Muon_isGlobal,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi,Muon_dxybs,Muon_isMedium,isTriggeredMuon)").Define("newweight","weight*goodmuon")
+                d = d.Define("goodmuon","goodmuontrigger(goodgeneta,goodgenphi,Muon_pt,Muon_eta,Muon_phi,Muon_isGlobal,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi,Muon_dxybs,Muon_mediumId,isTriggeredMuon)").Define("newweight","weight*goodmuon")
 
-                pass_histogram_reco = d.HistoND(model_pass_trig,strings_pass)
-                pass_histogram_norm = d.HistoND(model_norm_trig,strings_norm)
+                pass_histogram_reco = d.Filter("goodgenpt.size()>=2").HistoND(model_pass_trig,strings_pass)
+                pass_histogram_norm = d.Filter("goodgenpt.size()>=2").HistoND(model_norm_trig,strings_norm)
 
                 ROOT.saveHistogramsGen(pass_histogram_reco,pass_histogram_norm,ROOT.std.string(args.output_file))
                 
@@ -381,10 +414,13 @@ else:
                 fail_histogram_trig.Write()
 
             else:
-                d = d.Define("goodmuon","goodmuontrigger(goodgeneta,goodgenphi,Muon_pt,Muon_eta,Muon_phi,Muon_isGlobal,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi,Muon_dxybs,Muon_isMedium,isTriggeredMuon)").Define("newweight","weight*goodmuon")
+                d = d.Define("goodmuon","goodmuontrigger(goodgeneta,goodgenphi,Muon_pt,Muon_eta,Muon_phi,Muon_isGlobal,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi,Muon_dxybs,Muon_mediumId,isTriggeredMuon)").Define("newweight","weight*goodmuon")
 
-                pass_histogram_reco = d.Histo2D({"Pass","",len(binning_eta)-1,binning_eta,len(binning_pt)-1,binning_pt},"goodgeneta","goodgenpt","newweight")
-                pass_histogram_norm = d.Histo2D({"Norm","",len(binning_eta)-1,binning_eta,len(binning_pt)-1,binning_pt},"goodgeneta","goodgenpt","weight")
+                model_pass_reco = ROOT.RDF.TH2DModel("Pass","",len(binning_eta)-1,binning_eta,len(binning_pt)-1,binning_pt)
+                model_norm_reco = ROOT.RDF.TH2DModel("Norm","",len(binning_eta)-1,binning_eta,len(binning_pt)-1,binning_pt)
+
+                pass_histogram_reco = d.Histo2D(model_pass_reco,"goodgeneta","goodgenpt","newweight")
+                pass_histogram_norm = d.Histo2D(model_norm_reco,"goodgeneta","goodgenpt","weight")
 
                 pass_histogram_reco.Write()
                 pass_histogram_norm.Write()
@@ -418,25 +454,25 @@ else:
 
                 ROOT.saveHistograms(pass_histogram_iso,fail_histogram_iso,ROOT.std.string(args.output_file))
             else:
-                model_pass_trig = ROOT.RDF.THnDModel("pass_mu_"+histo_name, "Trigger_pass", 4, GENNBIN, GENXBINS)
-                model_norm_trig = ROOT.RDF.THnDModel("norm_mu_"+histo_name, "Trigger_norm", 4, GENNBIN, GENXBINS)
+                model_pass_trig = ROOT.RDF.THnDModel("pass_mu_"+histo_name, "Isolation_pass", 4, GENNBIN, GENXBINS)
+                model_norm_trig = ROOT.RDF.THnDModel("norm_mu_"+histo_name, "Isolation_norm", 4, GENNBIN, GENXBINS)
                 strings_pass = ROOT.std.vector('string')()
-                strings_pass.emplace_back("Probe_pt_pass")
-                strings_pass.emplace_back("Probe_eta_pass")
-                strings_pass.emplace_back("Probe_charge_pass")
-                strings_pass.emplace_back("Probe_u_pass")
+                strings_pass.emplace_back("goodgenpt")
+                strings_pass.emplace_back("goodgeneta")
+                strings_pass.emplace_back("goodgencharge")
+                strings_pass.emplace_back("postFSRgenzqtprojection")
                 strings_pass.emplace_back("newweight")
                 strings_norm = ROOT.std.vector('string')()
-                strings_norm.emplace_back("Probe_pt_fail")
-                strings_norm.emplace_back("Probe_eta_fail")
-                strings_norm.emplace_back("Probe_charge_fail")
-                strings_norm.emplace_back("Probe_u_fail")
+                strings_norm.emplace_back("goodgenpt")
+                strings_norm.emplace_back("goodgeneta")
+                strings_norm.emplace_back("goodgencharge")
+                strings_norm.emplace_back("postFSRgenzqtprojection")
                 strings_norm.emplace_back("weight")
 
-                d = d.Define("goodmuon","goodmuonisolation(goodgeneta,goodgenphi,Muon_pt,Muon_eta,Muon_phi,Muon_isGlobal,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi,Muon_dxybs,Muon_isMedium,isTriggeredMuon,Muon_pfRelIso04_all)").Define("newweight","weight*goodmuon")
+                d = d.Define("goodmuon","goodmuonisolation(goodgeneta,goodgenphi,Muon_pt,Muon_eta,Muon_phi,Muon_isGlobal,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi,Muon_dxybs,Muon_mediumId,isTriggeredMuon,Muon_pfRelIso04_all)").Define("newweight","weight*goodmuon")
 
-                pass_histogram_reco = d.HistoND(model_pass_trig,strings_pass)
-                pass_histogram_norm = d.HistoND(model_norm_trig,strings_norm)
+                pass_histogram_reco = d.Filter("goodgenpt.size()>=2").HistoND(model_pass_trig,strings_pass)
+                pass_histogram_norm = d.Filter("goodgenpt.size()>=2").HistoND(model_norm_trig,strings_norm)
 
                 ROOT.saveHistogramsGen(pass_histogram_reco,pass_histogram_norm,ROOT.std.string(args.output_file))
 
@@ -452,10 +488,13 @@ else:
                 fail_histogram_iso.Write()
 
             else:
-                d = d.Define("goodmuon","goodmuonisolation(goodgeneta,goodgenphi,Muon_pt,Muon_eta,Muon_phi,Muon_isGlobal,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi,Muon_dxybs,Muon_isMedium,isTriggeredMuon,Muon_pfRelIso04_all)").Define("newweight","weight*goodmuon")
+                d = d.Define("goodmuon","goodmuonisolation(goodgeneta,goodgenphi,Muon_pt,Muon_eta,Muon_phi,Muon_isGlobal,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi,Muon_dxybs,Muon_mediumId,isTriggeredMuon,Muon_pfRelIso04_all)").Define("newweight","weight*goodmuon")
 
-                pass_histogram_reco = d.Histo2D({"Pass","",len(binning_eta)-1,binning_eta,len(binning_pt)-1,binning_pt},"goodgeneta","goodgenpt","newweight")
-                pass_histogram_norm = d.Histo2D({"Norm","",len(binning_eta)-1,binning_eta,len(binning_pt)-1,binning_pt},"goodgeneta","goodgenpt","weight")
+                model_pass_reco = ROOT.RDF.TH2DModel("Pass","",len(binning_eta)-1,binning_eta,len(binning_pt)-1,binning_pt)
+                model_norm_reco = ROOT.RDF.TH2DModel("Norm","",len(binning_eta)-1,binning_eta,len(binning_pt)-1,binning_pt)
+
+                pass_histogram_reco = d.Histo2D(model_pass_reco,"goodgeneta","goodgenpt","newweight")
+                pass_histogram_norm = d.Histo2D(model_norm_reco,"goodgeneta","goodgenpt","weight")
 
                 pass_histogram_reco.Write()
                 pass_histogram_norm.Write()

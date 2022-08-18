@@ -83,7 +83,7 @@ void insert( std::vector<std::pair<double,int> > &cont, std::pair<double,int> va
     cont.insert( it, value );
 }
 
-RVec<float> goodgenvalue(RVec<float> &GenPart_pt, int &GenPart_postFSRLepIdx1, int &GenPart_postFSRLepIdx2, RVec<float> &GenPart_eta, RVec<float> &GenPart_phi, RVec<int> &GenPart_status, RVec<int> &GenPart_pdgId) {
+RVec<float> goodgenvalue(RVec<float> &GenPart_pt, int GenPart_postFSRLepIdx1, int GenPart_postFSRLepIdx2, RVec<float> &GenPart_eta, RVec<float> &GenPart_phi, RVec<int> &GenPart_status, RVec<int> &GenPart_pdgId) {
 	RVec<float> v;
 	for (auto i=0U;i < GenPart_pt.size(); ++i) {
 		if (((i==GenPart_postFSRLepIdx1)||(i==GenPart_postFSRLepIdx2))&&(abs(GenPart_pdgId[i])==13)) {
@@ -103,7 +103,27 @@ RVec<float> goodgenvalue(RVec<float> &GenPart_pt, int &GenPart_postFSRLepIdx1, i
 	return v;
 }
 
-RVec<int> goodgenidx(RVec<float> &GenPart_pt, int &GenPart_postFSRLepIdx1, int &GenPart_postFSRLepIdx2, RVec<float> &GenPart_eta, RVec<float> &GenPart_phi, RVec<int> &GenPart_status, RVec<int> &GenPart_pdgId) {
+RVec<int> goodgencharge(int GenPart_postFSRLepIdx1, int GenPart_postFSRLepIdx2, RVec<float> &GenPart_eta, RVec<float> &GenPart_phi, RVec<int> &GenPart_status, RVec<int> &GenPart_pdgId) {
+	RVec<int> v;
+	for (auto i=0U;i < GenPart_eta.size(); ++i) {
+		if (((i==GenPart_postFSRLepIdx1)||(i==GenPart_postFSRLepIdx2))&&(abs(GenPart_pdgId[i])==13)) {
+			bool condition=true;
+			for (auto j=0U; j < GenPart_eta.size(); ++j) {
+				if (i==j) continue;
+				if (GenPart_status[j]!=1) continue;
+				if (!(((j==GenPart_postFSRLepIdx1)||(j==GenPart_postFSRLepIdx2))&&(abs(GenPart_pdgId[j])==13))) continue;
+				TLorentzVector cand1, cand2;
+				cand1.SetPtEtaPhiM(3.,GenPart_eta[i],GenPart_phi[i],0.);
+				cand2.SetPtEtaPhiM(3.,GenPart_eta[j],GenPart_phi[j],0.);
+				if (cand1.DeltaR(cand2)<0.3) condition=false;
+			}
+			if (condition) v.emplace_back(-GenPart_pdgId[i]/abs(GenPart_pdgId[i]));
+		}
+	}
+	return v;
+}
+
+RVec<int> goodgenidx(RVec<float> &GenPart_pt, int GenPart_postFSRLepIdx1, int GenPart_postFSRLepIdx2, RVec<float> &GenPart_eta, RVec<float> &GenPart_phi, RVec<int> &GenPart_status, RVec<int> &GenPart_pdgId) {
 	RVec<int> v;
 	for (auto i=0U;i < GenPart_pt.size(); ++i) {
 		if (((i==GenPart_postFSRLepIdx1)||(i==GenPart_postFSRLepIdx2))&&(abs(GenPart_pdgId[i])==13)) {
