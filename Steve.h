@@ -405,7 +405,8 @@ public:
   using pair_t = std::pair<unsigned int, unsigned int>;
   using jsonmap_t = std::unordered_map<unsigned int, std::vector<pair_t>>;
   
-  JsonHelper(const std::vector<unsigned int> &runs, const std::vector<unsigned int> &firstlumis, const std::vector<unsigned int> &lastlumis) :
+  JsonHelper(const std::vector<unsigned int> &runs, const std::vector<unsigned int> &firstlumis, 
+	     const std::vector<unsigned int> &lastlumis) :
   jsonmap_(std::make_shared<jsonmap_t>()) {
     for (unsigned int i = 0; i < firstlumis.size(); ++i) {
       (*jsonmap_)[runs[i]].push_back(std::make_pair(firstlumis[i],lastlumis[i]));
