@@ -424,7 +424,8 @@ public:
     const auto it = jsonmap_->find(run);
     if (it != jsonmap_->end()) {
       auto const &pairs = it->second;
-      auto const pairit = std::lower_bound(pairs.begin(), pairs.end(), lumi, [](const pair_t &pair, unsigned int val) { return pair.second < val; } );
+      auto const pairit = std::lower_bound(pairs.begin(), pairs.end(), lumi, 
+			[](const pair_t &pair, unsigned int val) { return pair.second < val; } );
       if (pairit != pairs.end()) {
         if (lumi >= pairit->first) {
           return true;
