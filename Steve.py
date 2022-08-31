@@ -150,7 +150,7 @@ d = d.Define("isTriggeredMuon","hasTriggerMatch(Muon_eta,Muon_phi,TrigObj_id,Tri
 if(args.isData == 1):
     d = d.Define("isGenMatchedMuon","createTrues(nMuon)")
 else: 
-    d = d.Define("isGenMatchedMuon","hasGenMatch(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,Muon_eta,Muon_phi)")
+    d = d.Define("isGenMatchedMuon","hasGenMatch(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,Muon_eta,Muon_phi,0.1)")
 
 d = d.Define("isTag","Muon_pt > 25 && abs(Muon_eta) < 2.4 && Muon_pfRelIso04_all < 0.15 && abs(Muon_dxybs) < 0.05 && Muon_mediumId && Muon_isGlobal")
 
@@ -173,7 +173,7 @@ if(args.efficiency == 1):
         if(args.isData == 1):
             d = d.Define("isGenMatchedTrack","createTrues(nTrack)")
         else:
-            d = d.Define("isGenMatchedTrack","hasGenMatch(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,Track_eta,Track_phi)")
+            d = d.Define("isGenMatchedTrack","hasGenMatch(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,Track_eta,Track_phi,0.1)")
             d = d.Define("GenMatchedIdx","GenMatchedIdx(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,Track_eta,Track_phi)")
 
         d = d.Define("trackMuonDR","trackMuonDR(Track_eta,Track_phi,Muon_eta,Muon_phi)")
@@ -232,7 +232,7 @@ elif (args.efficiency == 2):
         if(args.isData == 1):
             d = d.Define("isGenMatchedMergedStandMuon","createTrues(nMergedStandAloneMuon)")
         else:
-            d = d.Define("isGenMatchedMergedStandMuon","hasGenMatch(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,MergedStandAloneMuon_eta,MergedStandAloneMuon_phi)")
+            d = d.Define("isGenMatchedMergedStandMuon","hasGenMatch(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,MergedStandAloneMuon_eta,MergedStandAloneMuon_phi,0.3)")
             d = d.Define("GenMatchedIdx","GenMatchedIdx(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,MergedStandAloneMuon_eta,MergedStandAloneMuon_phi)")
 
         d = d.Define("Probe_MergedStandMuons","CreateProbes_MergedStandMuons(MergedStandAloneMuon_pt,MergedStandAloneMuon_eta,MergedStandAloneMuon_phi)")

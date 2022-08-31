@@ -95,6 +95,7 @@ RVec<Int_t> CreateProbes_MergedStandMuons(RVec<Float_t> &MergedStandAloneMuon_pt
   RVec<Int_t> Probe_Stand;
   for(int i=0;i<MergedStandAloneMuon_pt.size();i++){
     if(MergedStandAloneMuon_pt.at(i) < 15.) continue;
+    if(MergedStandAloneMuon_eta.at(i) > 2.4) continue;
     //Probe probe_track;
     //probe_track.pt = Track_pt.at(i);
     //probe_track.eta = Track_eta.at(i);
@@ -223,7 +224,7 @@ RVec<Bool_t> hasTriggerMatch(RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi,
 RVec<Bool_t> hasGenMatch(RVec<Int_t> &GenPart_pdgId, RVec<Int_t> &GenPart_status,
 			 RVec<Int_t> &GenPart_statusFlags, RVec<Float_t> &GenPart_eta,
 			 RVec<Float_t> &GenPart_phi, RVec<Float_t> &Cand_eta, 
-			 RVec<Float_t> &Cand_phi)
+			 RVec<Float_t> &Cand_phi, double dR_angle)
 {
   RVec<Bool_t> isGenMatched;  
   for(int iCand=0;iCand<Cand_eta.size();iCand++){
@@ -242,7 +243,7 @@ RVec<Bool_t> hasGenMatch(RVec<Int_t> &GenPart_pdgId, RVec<Int_t> &GenPart_status
 	} 
       }
     }
-    if (mcmatch_tmp_dr < 0.1) matchMC = true;
+    if (mcmatch_tmp_dr < dR_angle) matchMC = true;
     isGenMatched.push_back(matchMC);
   }
   return isGenMatched;
