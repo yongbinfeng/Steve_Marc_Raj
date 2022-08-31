@@ -248,6 +248,28 @@ RVec<Bool_t> hasGenMatch(RVec<Int_t> &GenPart_pdgId, RVec<Int_t> &GenPart_status
   return isGenMatched;
 }
 
+RVec<Int_t> GenMatchedIdx(RVec<Int_t> &GenPart_pdgId, RVec<Int_t> &GenPart_status,RVec<Int_t> &GenPart_statusFlags,RVec<Float_t> &GenPart_eta,RVec<Float_t> &GenPart_phi,RVec<Float_t> &Cand_eta, RVec<Float_t> &Cand_phi){
+  RVec<Int_t> isGenMatched;  
+  for(int iCand=0;iCand<Cand_eta.size();iCand++){
+    int matchIdx = -1;   
+    float mcmatch_tmp_dr = 999.;
+    for(unsigned int iGen=0; iGen<GenPart_pdgId.size(); iGen++){
+      if ( abs(GenPart_pdgId[iGen])==13 &&  GenPart_status[iGen] == 1 && (GenPart_statusFlags[iGen] & 1)  ) {
+	if (deltaR(Cand_eta[iCand], Cand_phi[iCand], GenPart_eta[iGen], GenPart_phi[iGen]) < mcmatch_tmp_dr){
+	  mcmatch_tmp_dr  = deltaR(Cand_eta[iCand], Cand_phi[iCand], GenPart_eta[iGen], GenPart_phi[iGen]);
+      matchIdx=iGen;
+	  //truePt     = GenPart_pt[ii];
+	  //trueEta    = GenPart_eta[ii];
+	  //trueCharge = GenPart_charge[ii];
+	} 
+      }
+    }
+    if (mcmatch_tmp_dr < 0.1) isGenMatched.push_back(matchIdx);
+    else isGenMatched.push_back(-1);
+  }
+  return isGenMatched;
+}
+
 
 
 RVec<Float_t> getTPmass(RVec<std::pair<int,int>> TPPairs, RVec<Float_t> &Muon_pt,
@@ -309,6 +331,18 @@ RVec<Bool_t> getVariables(RVec<std::pair<int,int>> TPPairs, RVec<Bool_t> &Cand_v
   return Variables;
 }
 
+RVec<Float_t> getGenVariables(RVec<std::pair<int,int>> TPPairs, RVec<int> &GenMatchedIdx, RVec<Float_t> &Cand_variable, float option /*1 for tag and 2 for probe*/){
+  RVec<Float_t> Variables;
+  for (int i=0;i<TPPairs.size();i++){
+    std::pair<int,int> TPPair = TPPairs.at(i);
+    float variable; 
+    if (option==1) variable = Cand_variable.at(GenMatchedIdx.at(TPPair.first));
+    else if (option==2) variable = Cand_variable.at(GenMatchedIdx.at(TPPair.second));
+    Variables.push_back(variable);
+  }
+  return Variables;
+}
+
 RVec<Float_t> zqtprojection(RVec<std::pair<int,int>> &TPPairs, RVec<Float_t> &Muon_pt, 
 			    RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi) 
 {
@@ -319,6 +353,19 @@ RVec<Float_t> zqtprojection(RVec<std::pair<int,int>> &TPPairs, RVec<Float_t> &Mu
     tag.SetPtEtaPhiM(Muon_pt[TPPair.first], Muon_eta[TPPair.first], Muon_phi[TPPair.first], 0.);
     probe.SetPtEtaPhiM(Muon_pt[TPPair.second], Muon_eta[TPPair.second], 
 		       Muon_phi[TPPair.second], 0.);
+    TVector3 Tag(tag.Px(),tag.Py(),0.), Probe(probe.Px(), probe.Py(), 0.);
+    v.emplace_back((Tag+Probe).Dot(Probe)/sqrt(Probe.Dot(Probe)));
+  }
+  return v;
+}
+
+RVec<Float_t> zqtprojectionGen(RVec<std::pair<int,int>> &TPPairs, RVec<int> &GenMatchedIdx, RVec<Float_t> &GenPart_pt, RVec<Float_t> &GenPart_eta, RVec<Float_t> &GenPart_phi) {
+  RVec<Float_t> v;
+  for (int i=0;i<TPPairs.size();i++){
+    std::pair<int,int> TPPair = TPPairs.at(i);
+    TLorentzVector tag, probe;
+    tag.SetPtEtaPhiM(GenPart_pt[GenMatchedIdx[TPPair.first]],GenPart_eta[GenMatchedIdx[TPPair.first]],GenPart_phi[GenMatchedIdx[TPPair.first]],0.);
+    probe.SetPtEtaPhiM(GenPart_pt[GenMatchedIdx[TPPair.second]],GenPart_eta[GenMatchedIdx[TPPair.second]],GenPart_phi[GenMatchedIdx[TPPair.second]],0.);
     TVector3 Tag(tag.Px(),tag.Py(),0.), Probe(probe.Px(), probe.Py(), 0.);
     v.emplace_back((Tag+Probe).Dot(Probe)/sqrt(Probe.Dot(Probe)));
   }
@@ -464,6 +511,28 @@ void saveHistograms(ROOT::RDF::RResultPtr<THnT<double> > histo_pass,
     histo_fail->SetName(Histo_fail.GetName());
     histo_fail->Write();
     delete histo_fail;
+    f_out.Close();
+  }
+}
+
+void saveHistogramsGen(ROOT::RDF::RResultPtr<THnT<double> > histo_pass, ROOT::RDF::RResultPtr<THnT<double> > histo_norm, std::string output_file) {
+  THnD Histo_pass=*(THnD*)histo_pass.GetPtr()->Clone();
+  THnD Histo_norm=*(THnD*)histo_norm.GetPtr()->Clone();
+  size_t found = output_file.find(std::string(".root"));
+  for (unsigned int i=1; i<=Histo_pass.GetAxis(3)->GetNbins(); i++) {
+	std::string newoutputname(output_file.substr(0,found));
+    newoutputname+=std::string("_")+std::to_string(i)+std::string(".root");
+    TFile f_out(newoutputname.c_str(),"RECREATE");
+    Histo_pass.GetAxis(3)->SetRange(i,i);
+    TH2D* histo_pass=(TH2D*)Histo_pass.Projection(0,1);
+    histo_pass->SetName(Histo_pass.GetName());
+    histo_pass->Write();
+    delete histo_pass;
+    Histo_norm.GetAxis(3)->SetRange(i,i);
+    TH2D* histo_norm=(TH2D*)Histo_norm.Projection(0,1);
+    histo_norm->SetName(Histo_norm.GetName());
+    histo_norm->Write();
+    delete histo_norm;
     f_out.Close();
   }
 }
