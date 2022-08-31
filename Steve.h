@@ -44,15 +44,16 @@ float deltaR(float eta1, float phi1, float eta2, float phi2)
 
 RVec<Int_t> CreateProbes_Muon(RVec<Float_t> &Muon_pt, RVec<Float_t> &Muon_standalonePt,
 			      RVec<Float_t> &Muon_eta,RVec<Float_t> &Muon_phi, 
-			      RVec<Float_t> &Muon_standaloneEta, RVec<Float_t> &Muon_standalonePhi, 
+			      RVec<Float_t> &Muon_standaloneEta, 
+			      RVec<Float_t> &Muon_standalonePhi, 
 			      RVec<Int_t> &Muon_charge, RVec<Bool_t> &Muon_mediumId, 
 			      RVec<Float_t> &Muon_dxybs,RVec<Bool_t> &Muon_isGlobal)
 {
   RVec<Int_t> Probe_Muons;
   for(int i=0;i<Muon_pt.size();i++){
     if(Muon_pt.at(i) < 15 || Muon_standalonePt.at(i) < 15 || abs(Muon_eta.at(i)) > 2.4 || 
-       !Muon_isGlobal.at(i) || 
-       deltaR(Muon_eta.at(i),Muon_phi.at(i),Muon_standaloneEta.at(i),Muon_standalonePhi.at(i))>0.3) 
+       !Muon_isGlobal.at(i) || deltaR(Muon_eta.at(i),Muon_phi.at(i),
+	      			      Muon_standaloneEta.at(i),Muon_standalonePhi.at(i)) > 0.3) 
       continue;
     //Probe probe_muon;
     //probe_muon.pt = Muon_pt.at(i);
@@ -108,7 +109,8 @@ RVec<Int_t> CreateProbes_MergedStandMuons(RVec<Float_t> &MergedStandAloneMuon_pt
 
 RVec<std::pair<int,int>> CreateTPPair(RVec<Int_t> &Muon_charge, RVec<Int_t> &isTag, 
 				      RVec<Bool_t> &isTriggeredMuon, 
-				      RVec<Bool_t> &isGenMatchedMuon, RVec<Int_t> &Probe_Candidates, 
+				      RVec<Bool_t> &isGenMatchedMuon, 
+				      RVec<Int_t> &Probe_Candidates, 
    				      RVec<Bool_t> &isGenMatchedProbe )
 {
   RVec<std::pair<int,int>> TP_pairs;
@@ -136,7 +138,8 @@ RVec<std::pair<int,int>> CreateTPPair(RVec<Int_t> &Muon_charge, RVec<Int_t> &isT
 
 RVec<Bool_t> hasStandAloneOrGlobalMatch(RVec<Float_t> &Track_eta, RVec<Float_t> &Track_phi,
 					RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi,
-					RVec<Bool_t> &Muon_isStandalone,RVec<Bool_t> &Muon_isGlobal)
+					RVec<Bool_t> &Muon_isStandalone,
+					RVec<Bool_t> &Muon_isGlobal)
 {
   RVec<Int_t> hasStandAloneOrGlobalMatch;
   for(int iTrack=0;iTrack<Track_eta.size();iTrack++){
@@ -171,7 +174,8 @@ RVec<Float_t> trackMuonDR(RVec<Float_t> &Track_eta, RVec<Float_t> &Track_phi,
 
 
 RVec<Float_t> trackStandaloneDR(RVec<Float_t> &Track_eta, RVec<Float_t> &Track_phi,
-      				RVec<Float_t> &Muon_standaloneEta, RVec<Float_t> &Muon_standalonePhi)
+      				RVec<Float_t> &Muon_standaloneEta, 
+				RVec<Float_t> &Muon_standalonePhi)
 {
    RVec<Float_t> trackStandaloneDR;
    for(int iTrack=0;iTrack<Track_eta.size();iTrack++){
@@ -363,7 +367,8 @@ float clipGenWeight(float genWeight)
   return sign;
 }
 
-RVec<Bool_t> createTrues(int size){
+RVec<Bool_t> createTrues(int size)
+{
    RVec<Bool_t> Trues(size,true);
    return Trues;
 }
