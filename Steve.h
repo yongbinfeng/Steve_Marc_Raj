@@ -73,7 +73,7 @@ RVec<Int_t> CreateProbes_Track(RVec<Float_t> &Track_pt, RVec<Float_t> &Track_eta
 
   RVec<Int_t> Probe_Tracks;
   for(int i=0;i<Track_pt.size();i++){
-    if(Track_pt.at(i) < 15. || 
+    if(Track_pt.at(i) < 15. || abs(Track_eta.at(i) > 2.4) || 
        Track_trackOriginalAlgo.at(i) == 13 || Track_trackOriginalAlgo.at(i) == 14) continue;
     //Probe probe_track;
     //probe_track.pt = Track_pt.at(i);
