@@ -146,7 +146,11 @@ RVec<Bool_t> hasStandAloneOrGlobalMatch(RVec<Float_t> &Track_eta, RVec<Float_t> 
     bool has_match = false;
     for (int iMuon=0; iMuon<Muon_eta.size(); ++iMuon){
       if (!(Muon_isStandalone[iMuon] || Muon_isGlobal[iMuon])) continue;
-      if (deltaR(Muon_eta[iMuon], Muon_phi[iMuon], Track_eta[iTrack], Track_phi[iTrack]) < 0.01) {has_match = 1; break;}
+      if (deltaR(Muon_eta[iMuon], Muon_phi[iMuon], Track_eta[iTrack], Track_phi[iTrack]) < 0.01)
+      {
+	has_match = 1; 
+	break;
+      }
     } 
     hasStandAloneOrGlobalMatch.push_back(has_match);
   }
