@@ -22,27 +22,39 @@ using namespace ROOT::VecOps;
   };*/
 
 
-float deltaPhi(float phi1, float phi2) {                                                        
+float deltaPhi(float phi1, float phi2)
+{                                                        
   float result = phi1 - phi2;
   while (result > float(M_PI)) result -= float(2*M_PI);
   while (result <= -float(M_PI)) result += float(2*M_PI);
   return result;
 }
 
-float deltaR2(float eta1, float phi1, float eta2, float phi2) {
+float deltaR2(float eta1, float phi1, float eta2, float phi2)
+{
   float deta = std::abs(eta1-eta2);
   float dphi = deltaPhi(phi1,phi2);
   return deta*deta + dphi*dphi;
 }
 
-float deltaR(float eta1, float phi1, float eta2, float phi2) {
+float deltaR(float eta1, float phi1, float eta2, float phi2)
+{
   return std::sqrt(deltaR2(eta1,phi1,eta2,phi2));
 }
 
-RVec<Int_t> CreateProbes_Muon(RVec<Float_t> &Muon_pt, RVec<Float_t> &Muon_standalonePt,RVec<Float_t> &Muon_eta,RVec<Float_t> &Muon_phi, RVec<Float_t> &Muon_standaloneEta, RVec<Float_t> &Muon_standalonePhi, RVec<Int_t> &Muon_charge, RVec<Bool_t> &Muon_mediumId, RVec<Float_t> &Muon_dxybs,RVec<Bool_t> &Muon_isGlobal){
+RVec<Int_t> CreateProbes_Muon(RVec<Float_t> &Muon_pt, RVec<Float_t> &Muon_standalonePt,
+			      RVec<Float_t> &Muon_eta,RVec<Float_t> &Muon_phi, 
+			      RVec<Float_t> &Muon_standaloneEta, 
+			      RVec<Float_t> &Muon_standalonePhi, 
+			      RVec<Int_t> &Muon_charge, RVec<Bool_t> &Muon_mediumId, 
+			      RVec<Float_t> &Muon_dxybs,RVec<Bool_t> &Muon_isGlobal)
+{
   RVec<Int_t> Probe_Muons;
   for(int i=0;i<Muon_pt.size();i++){
-    if(Muon_pt.at(i) < 15 || Muon_standalonePt.at(i) < 15 || abs(Muon_eta.at(i)) > 2.4 || !Muon_isGlobal.at(i) || deltaR(Muon_eta.at(i),Muon_phi.at(i),Muon_standaloneEta.at(i),Muon_standalonePhi.at(i))>0.3) continue;
+    if(Muon_pt.at(i) < 15 || Muon_standalonePt.at(i) < 15 || abs(Muon_eta.at(i)) > 2.4 || 
+       !Muon_isGlobal.at(i) || deltaR(Muon_eta.at(i),Muon_phi.at(i),
+	      			      Muon_standaloneEta.at(i),Muon_standalonePhi.at(i)) > 0.3) 
+      continue;
     //Probe probe_muon;
     //probe_muon.pt = Muon_pt.at(i);
     //probe_muon.eta = Muon_eta.at(i);
@@ -54,11 +66,15 @@ RVec<Int_t> CreateProbes_Muon(RVec<Float_t> &Muon_pt, RVec<Float_t> &Muon_standa
   return Probe_Muons;
 }
 
-RVec<Int_t> CreateProbes_Track(RVec<Float_t> &Track_pt, RVec<Float_t> &Track_eta,RVec<Float_t> &Track_phi,RVec<Int_t> &Track_charge, RVec<Int_t> &Track_trackOriginalAlgo){
+RVec<Int_t> CreateProbes_Track(RVec<Float_t> &Track_pt, RVec<Float_t> &Track_eta,
+                               RVec<Float_t> &Track_phi,RVec<Int_t> &Track_charge, 
+                               RVec<Int_t> &Track_trackOriginalAlgo)
+{
 
   RVec<Int_t> Probe_Tracks;
   for(int i=0;i<Track_pt.size();i++){
-    if(Track_pt.at(i) < 15. || Track_trackOriginalAlgo.at(i) == 13 || Track_trackOriginalAlgo.at(i) == 14) continue;
+    if(Track_pt.at(i) < 15. || 
+       Track_trackOriginalAlgo.at(i) == 13 || Track_trackOriginalAlgo.at(i) == 14) continue;
     //Probe probe_track;
     //probe_track.pt = Track_pt.at(i);
     //probe_track.eta = Track_eta.at(i);
@@ -71,7 +87,10 @@ RVec<Int_t> CreateProbes_Track(RVec<Float_t> &Track_pt, RVec<Float_t> &Track_eta
 
 }
 
-RVec<Int_t> CreateProbes_MergedStandMuons(RVec<Float_t> &MergedStandAloneMuon_pt, RVec<Float_t> &MergedStandAloneMuon_eta, RVec<Float_t> &MergeStandAloneMuon_phi){
+RVec<Int_t> CreateProbes_MergedStandMuons(RVec<Float_t> &MergedStandAloneMuon_pt, 
+					  RVec<Float_t> &MergedStandAloneMuon_eta, 
+					  RVec<Float_t> &MergeStandAloneMuon_phi)
+{
 
   RVec<Int_t> Probe_Stand;
   for(int i=0;i<MergedStandAloneMuon_pt.size();i++){
@@ -88,16 +107,18 @@ RVec<Int_t> CreateProbes_MergedStandMuons(RVec<Float_t> &MergedStandAloneMuon_pt
 
 }
 
-RVec<std::pair<int,int>> CreateTPPair(RVec<Int_t> &Muon_charge, RVec<Int_t> &isTag, RVec<Bool_t> &isTriggeredMuon, RVec<Bool_t> &isGenMatchedMuon, RVec<Int_t> &Probe_Candidates, RVec<Bool_t> &isGenMatchedProbe ){
+RVec<std::pair<int,int>> CreateTPPair(RVec<Int_t> &Muon_charge, RVec<Int_t> &isTag, 
+				      RVec<Bool_t> &isTriggeredMuon, 
+				      RVec<Bool_t> &isGenMatchedMuon, 
+				      RVec<Int_t> &Probe_Candidates, 
+   				      RVec<Bool_t> &isGenMatchedProbe )
+{
   RVec<std::pair<int,int>> TP_pairs;
   for(int iLep1=0; iLep1<Muon_charge.size();iLep1++){
     //if(!isInAcceptance[iLep1]) continue;
     if(!isTag[iLep1]) continue;
     if(!isTriggeredMuon[iLep1]) continue;
     if(!isGenMatchedMuon[iLep1]) continue;
-
-
-
 
     for(int iLep2=0; iLep2<Probe_Candidates.size(); iLep2++){
       int probe_candidate = Probe_Candidates.at(iLep2);
@@ -115,13 +136,21 @@ RVec<std::pair<int,int>> CreateTPPair(RVec<Int_t> &Muon_charge, RVec<Int_t> &isT
   return TP_pairs;
 }
 
-RVec<Bool_t> hasStandAloneOrGlobalMatch(RVec<Float_t> &Track_eta, RVec<Float_t> &Track_phi,RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi,RVec<Bool_t> &Muon_isStandalone,RVec<Bool_t> &Muon_isGlobal){
+RVec<Bool_t> hasStandAloneOrGlobalMatch(RVec<Float_t> &Track_eta, RVec<Float_t> &Track_phi,
+					RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi,
+					RVec<Bool_t> &Muon_isStandalone,
+					RVec<Bool_t> &Muon_isGlobal)
+{
   RVec<Int_t> hasStandAloneOrGlobalMatch;
   for(int iTrack=0;iTrack<Track_eta.size();iTrack++){
     bool has_match = false;
     for (int iMuon=0; iMuon<Muon_eta.size(); ++iMuon){
       if (!(Muon_isStandalone[iMuon] || Muon_isGlobal[iMuon])) continue;
-      if (deltaR(Muon_eta[iMuon], Muon_phi[iMuon], Track_eta[iTrack], Track_phi[iTrack]) < 0.01) {has_match = 1; break;}
+      if (deltaR(Muon_eta[iMuon], Muon_phi[iMuon], Track_eta[iTrack], Track_phi[iTrack]) < 0.01)
+      {
+	has_match = 1; 
+	break;
+      }
     } 
     hasStandAloneOrGlobalMatch.push_back(has_match);
   }
@@ -129,14 +158,17 @@ RVec<Bool_t> hasStandAloneOrGlobalMatch(RVec<Float_t> &Track_eta, RVec<Float_t> 
 }
 
 
-RVec<Float_t> trackMuonDR(RVec<Float_t> &Track_eta, RVec<Float_t> &Track_phi,RVec<Float_t> &Muon_eta,RVec<Float_t> &Muon_phi){
+RVec<Float_t> trackMuonDR(RVec<Float_t> &Track_eta, RVec<Float_t> &Track_phi,
+			  RVec<Float_t> &Muon_eta,RVec<Float_t> &Muon_phi)
+{
   RVec<Float_t> trackMuonDR; 
   for(int iTrack=0;iTrack<Track_eta.size();iTrack++){
     float dr = 999.;
     float tmp_dr  = 999.;
 
     for (unsigned int iMuon=0; iMuon<Muon_eta.size(); ++iMuon){
-      tmp_dr  = deltaR(Muon_eta.at(iMuon), Muon_phi.at(iMuon), Track_eta.at(iTrack), Track_phi.at(iTrack));
+      tmp_dr  = deltaR(Muon_eta.at(iMuon), Muon_phi.at(iMuon), 
+		       Track_eta.at(iTrack), Track_phi.at(iTrack));
       if (tmp_dr < dr) dr = tmp_dr;
     }
     trackMuonDR.push_back(dr);
@@ -145,14 +177,18 @@ RVec<Float_t> trackMuonDR(RVec<Float_t> &Track_eta, RVec<Float_t> &Track_phi,RVe
 }
 
 
-RVec<Float_t> trackStandaloneDR(RVec<Float_t> &Track_eta, RVec<Float_t> &Track_phi,RVec<Float_t> &Muon_standaloneEta,RVec<Float_t> &Muon_standalonePhi){
+RVec<Float_t> trackStandaloneDR(RVec<Float_t> &Track_eta, RVec<Float_t> &Track_phi,
+      				RVec<Float_t> &Muon_standaloneEta, 
+				RVec<Float_t> &Muon_standalonePhi)
+{
    RVec<Float_t> trackStandaloneDR;
    for(int iTrack=0;iTrack<Track_eta.size();iTrack++){
      float dr = 999.;
      float tmp_dr  = 999.;
      
      for (unsigned int iMuon=0; iMuon<Muon_standaloneEta.size(); ++iMuon){
-       tmp_dr  = deltaR(Muon_standaloneEta.at(iMuon), Muon_standalonePhi.at(iMuon), Track_eta.at(iTrack), Track_phi.at(iTrack));
+       tmp_dr  = deltaR(Muon_standaloneEta.at(iMuon), Muon_standalonePhi.at(iMuon), 
+			Track_eta.at(iTrack), Track_phi.at(iTrack));
        if (tmp_dr < dr) dr = tmp_dr;
      } 
      trackStandaloneDR.push_back(dr);
@@ -160,15 +196,20 @@ RVec<Float_t> trackStandaloneDR(RVec<Float_t> &Track_eta, RVec<Float_t> &Track_p
    return trackStandaloneDR;
  }
 
-RVec<Bool_t> hasTriggerMatch(RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi, RVec<Int_t> &TrigObj_id,RVec<Float_t> &TrigObj_pt,RVec<Float_t> & TrigObj_l1pt, RVec<Float_t> & TrigObj_l2pt, RVec<Int_t> &TrigObj_filterBits, RVec<Float_t> &TrigObj_eta, RVec<Float_t> &TrigObj_phi){
+RVec<Bool_t> hasTriggerMatch(RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi, 
+      			     RVec<Int_t> &TrigObj_id, RVec<Float_t> &TrigObj_pt,
+  			     RVec<Float_t> & TrigObj_l1pt, RVec<Float_t> & TrigObj_l2pt, 
+			     RVec<Int_t> &TrigObj_filterBits, RVec<Float_t> &TrigObj_eta, 
+			     RVec<Float_t> &TrigObj_phi)
+{
   RVec<Bool_t> TriggerMatch;
   for (int iMuon = 0; iMuon<Muon_eta.size(); iMuon++ ){
     bool hasTrigMatch = false;
     for (unsigned int iTrig=0; iTrig<TrigObj_id.size(); ++iTrig){
       if (TrigObj_id[iTrig]  != 13 ) continue;
-      if (TrigObj_pt[iTrig]   < 24.) continue;
-      if (TrigObj_l1pt[iTrig] < 22.) continue;
-      if (! (( TrigObj_filterBits[iTrig] & 8) || (TrigObj_l2pt[iTrig] > 10. && (TrigObj_filterBits[iTrig] & 2) )) ) continue;
+      //if (TrigObj_pt[iTrig]   < 24.) continue;
+      //if (TrigObj_l1pt[iTrig] < 22.) continue;
+      if (! (( TrigObj_filterBits[iTrig] & 16) || (TrigObj_filterBits[iTrig] & 32) ) ) continue;
       if (deltaR(Muon_eta[iMuon], Muon_phi[iMuon], TrigObj_eta[iTrig], TrigObj_phi[iTrig]) < 0.3) {
 	hasTrigMatch = true;
 	break;
@@ -179,15 +220,22 @@ RVec<Bool_t> hasTriggerMatch(RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi, R
   return TriggerMatch;
 }
 
-RVec<Bool_t> hasGenMatch(RVec<Int_t> &GenPart_pdgId, RVec<Int_t> &GenPart_status,RVec<Int_t> &GenPart_statusFlags,RVec<Float_t> &GenPart_eta,RVec<Float_t> &GenPart_phi,RVec<Float_t> &Cand_eta, RVec<Float_t> &Cand_phi){
+RVec<Bool_t> hasGenMatch(RVec<Int_t> &GenPart_pdgId, RVec<Int_t> &GenPart_status,
+			 RVec<Int_t> &GenPart_statusFlags, RVec<Float_t> &GenPart_eta,
+			 RVec<Float_t> &GenPart_phi, RVec<Float_t> &Cand_eta, 
+			 RVec<Float_t> &Cand_phi)
+{
   RVec<Bool_t> isGenMatched;  
   for(int iCand=0;iCand<Cand_eta.size();iCand++){
     bool matchMC = false;   
     float mcmatch_tmp_dr = 999.;
     for(unsigned int iGen=0; iGen<GenPart_pdgId.size(); iGen++){
-      if ( abs(GenPart_pdgId[iGen])==13 &&  GenPart_status[iGen] == 1 && (GenPart_statusFlags[iGen] & 1)  ) {
-	if (deltaR(Cand_eta[iCand], Cand_phi[iCand], GenPart_eta[iGen], GenPart_phi[iGen]) < mcmatch_tmp_dr){
-	  mcmatch_tmp_dr  = deltaR(Cand_eta[iCand], Cand_phi[iCand], GenPart_eta[iGen], GenPart_phi[iGen]);
+      if ( abs(GenPart_pdgId[iGen])==13 &&  GenPart_status[iGen] == 1 && 
+	  (GenPart_statusFlags[iGen] & 1) ) {
+	if (deltaR(Cand_eta[iCand], Cand_phi[iCand], 
+	           GenPart_eta[iGen], GenPart_phi[iGen]) < mcmatch_tmp_dr){
+	  mcmatch_tmp_dr  = deltaR(Cand_eta[iCand], Cand_phi[iCand], 
+				   GenPart_eta[iGen], GenPart_phi[iGen]);
 	  //truePt     = GenPart_pt[ii];
 	  //trueEta    = GenPart_eta[ii];
 	  //trueCharge = GenPart_charge[ii];
@@ -224,7 +272,10 @@ RVec<Int_t> GenMatchedIdx(RVec<Int_t> &GenPart_pdgId, RVec<Int_t> &GenPart_statu
 
 
 
-RVec<Float_t> getTPmass(RVec<std::pair<int,int>> TPPairs, RVec<Float_t> &Muon_pt,RVec<Float_t> &Muon_eta,RVec<Float_t> &Muon_phi, RVec<Float_t> &Cand_pt, RVec<Float_t> &Cand_eta, RVec<Float_t> &Cand_phi){
+RVec<Float_t> getTPmass(RVec<std::pair<int,int>> TPPairs, RVec<Float_t> &Muon_pt,
+			RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi, 
+			RVec<Float_t> &Cand_pt, RVec<Float_t> &Cand_eta, RVec<Float_t> &Cand_phi)
+{
   RVec<Float_t> TPMass;
   for (int i=0;i<TPPairs.size();i++){
     std::pair<int,int> TPPair = TPPairs.at(i);
@@ -240,7 +291,9 @@ RVec<Float_t> getTPmass(RVec<std::pair<int,int>> TPPairs, RVec<Float_t> &Muon_pt
 }
 
 
-RVec<Float_t> getVariables(RVec<std::pair<int,int>> TPPairs, RVec<Float_t> &Cand_variable, float option /*1 for tag and 2 for probe*/){
+RVec<Float_t> getVariables(RVec<std::pair<int,int>> TPPairs, RVec<Float_t> &Cand_variable, 
+			   float option /*1 for tag and 2 for probe*/)
+{
   RVec<Float_t> Variables;
   for (int i=0;i<TPPairs.size();i++){
     std::pair<int,int> TPPair = TPPairs.at(i);
@@ -252,7 +305,8 @@ RVec<Float_t> getVariables(RVec<std::pair<int,int>> TPPairs, RVec<Float_t> &Cand
   return Variables;
 }
 
-RVec<Int_t> getVariables(RVec<std::pair<int,int>> TPPairs, RVec<Int_t> &Cand_variable,float option /*1 for tag and 2 for probe*/){
+RVec<Int_t> getVariables(RVec<std::pair<int,int>> TPPairs, RVec<Int_t> &Cand_variable,
+			 float option /*1 for tag and 2 for probe*/){
   RVec<Int_t> Variables;
   for (int i=0;i<TPPairs.size();i++){
     std::pair<int,int> TPPair = TPPairs.at(i);
@@ -264,7 +318,8 @@ RVec<Int_t> getVariables(RVec<std::pair<int,int>> TPPairs, RVec<Int_t> &Cand_var
   return Variables;
 }
 
-RVec<Bool_t> getVariables(RVec<std::pair<int,int>> TPPairs, RVec<Bool_t> &Cand_variable,float option /*1 for tag and 2 for probe*/){
+RVec<Bool_t> getVariables(RVec<std::pair<int,int>> TPPairs, RVec<Bool_t> &Cand_variable,
+			  float option /*1 for tag and 2 for probe*/){
   RVec<Bool_t> Variables;
   for (int i=0;i<TPPairs.size();i++){
     std::pair<int,int> TPPair = TPPairs.at(i);
@@ -288,13 +343,16 @@ RVec<Float_t> getGenVariables(RVec<std::pair<int,int>> TPPairs, RVec<int> &GenMa
   return Variables;
 }
 
-RVec<Float_t> zqtprojection(RVec<std::pair<int,int>> &TPPairs, RVec<Float_t> &Muon_pt, RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi) {
+RVec<Float_t> zqtprojection(RVec<std::pair<int,int>> &TPPairs, RVec<Float_t> &Muon_pt, 
+			    RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi) 
+{
   RVec<Float_t> v;
   for (int i=0;i<TPPairs.size();i++){
     std::pair<int,int> TPPair = TPPairs.at(i);
     TLorentzVector tag, probe;
-    tag.SetPtEtaPhiM(Muon_pt[TPPair.first],Muon_eta[TPPair.first],Muon_phi[TPPair.first],0.);
-    probe.SetPtEtaPhiM(Muon_pt[TPPair.second],Muon_eta[TPPair.second],Muon_phi[TPPair.second],0.);
+    tag.SetPtEtaPhiM(Muon_pt[TPPair.first], Muon_eta[TPPair.first], Muon_phi[TPPair.first], 0.);
+    probe.SetPtEtaPhiM(Muon_pt[TPPair.second], Muon_eta[TPPair.second], 
+		       Muon_phi[TPPair.second], 0.);
     TVector3 Tag(tag.Px(),tag.Py(),0.), Probe(probe.Px(), probe.Py(), 0.);
     v.emplace_back((Tag+Probe).Dot(Probe)/sqrt(Probe.Dot(Probe)));
   }
@@ -314,11 +372,13 @@ RVec<Float_t> zqtprojectionGen(RVec<std::pair<int,int>> &TPPairs, RVec<int> &Gen
   return v;
 }
 
-RVec<Bool_t> isOS(RVec<std::pair<int,int>> TPPairs,RVec<Int_t> Muon_charge, RVec<Int_t> Cand_charge){
+RVec<Bool_t> isOS(RVec<std::pair<int,int>> TPPairs, RVec<Int_t> Muon_charge, 
+		  RVec<Int_t> Cand_charge)
+{
   RVec<Bool_t> isOS;
   for (int i=0;i<TPPairs.size();i++){
     std::pair<int,int> TPPair = TPPairs.at(i);
-    int  tag_index = TPPair.first;
+    int tag_index = TPPair.first;
     int probe_index = TPPair.second;
     bool os = false;
     if (Muon_charge[tag_index] != Cand_charge[probe_index]) os = true; //initially ==. We want this to return true for opposite sign pairs, right?
@@ -327,7 +387,14 @@ RVec<Bool_t> isOS(RVec<std::pair<int,int>> TPPairs,RVec<Int_t> Muon_charge, RVec
   return isOS;
 }
 
-RVec<Bool_t> Probe_isGlobal(RVec<std::pair<int,int>> &TPPairs, RVec<Int_t> &MergedStandAloneMuon_extraIdx, RVec<Int_t> &Muon_standaloneExtraIdx, RVec<Bool_t> &Muon_isGlobal, RVec<Float_t> &Muon_pt, RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi, RVec<Float_t> &Muon_standalonePt, RVec<Float_t> &Muon_standaloneEta, RVec<Float_t> &Muon_standalonePhi) {
+RVec<Bool_t> Probe_isGlobal(RVec<std::pair<int,int>> &TPPairs, 
+			    RVec<Int_t> &MergedStandAloneMuon_extraIdx, 
+			    RVec<Int_t> &Muon_standaloneExtraIdx, 
+			    RVec<Bool_t> &Muon_isGlobal, RVec<Float_t> &Muon_pt, 
+			    RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi, 
+			    RVec<Float_t> &Muon_standalonePt, RVec<Float_t> &Muon_standaloneEta, 
+			    RVec<Float_t> &Muon_standalonePhi)
+{
   RVec<Bool_t> isGlobal;
   for (auto i=0U; i<TPPairs.size(); i++) {
     std::pair<int,int> TPPair = TPPairs.at(i);
@@ -335,7 +402,11 @@ RVec<Bool_t> Probe_isGlobal(RVec<std::pair<int,int>> &TPPairs, RVec<Int_t> &Merg
     int probe_index = TPPair.second;
     bool condition=false;
     for (auto j=0U; j<Muon_standaloneExtraIdx.size(); j++) {
-      if ((MergedStandAloneMuon_extraIdx[probe_index]==Muon_standaloneExtraIdx[j])&&(Muon_isGlobal[j])&&(Muon_pt[j]>15.)&&(Muon_standalonePt[j]>15.)&&(deltaR(Muon_eta[j],Muon_phi[j],Muon_standaloneEta[j],Muon_standalonePhi[j])<0.3)) condition=true;
+      if ( (MergedStandAloneMuon_extraIdx[probe_index] == Muon_standaloneExtraIdx[j]) && 
+	   (Muon_isGlobal[j]) && (Muon_pt[j] > 15.) && (Muon_standalonePt[j] > 15.) && 
+	   (deltaR(Muon_eta[j], Muon_phi[j], Muon_standaloneEta[j], 
+		   Muon_standalonePhi[j]) < 0.3 ))
+        condition=true;
     }
     isGlobal.push_back(condition);
   }
@@ -343,12 +414,14 @@ RVec<Bool_t> Probe_isGlobal(RVec<std::pair<int,int>> &TPPairs, RVec<Int_t> &Merg
 }
 
 
-float clipGenWeight(float genWeight){
+float clipGenWeight(float genWeight)
+{
   float sign =  genWeight/ abs(genWeight);
   return sign;
 }
 
-RVec<Bool_t> createTrues(int size){
+RVec<Bool_t> createTrues(int size)
+{
    RVec<Bool_t> Trues(size,true);
    return Trues;
 }
@@ -381,7 +454,8 @@ public:
   using pair_t = std::pair<unsigned int, unsigned int>;
   using jsonmap_t = std::unordered_map<unsigned int, std::vector<pair_t>>;
   
-  JsonHelper(const std::vector<unsigned int> &runs, const std::vector<unsigned int> &firstlumis, const std::vector<unsigned int> &lastlumis) :
+  JsonHelper(const std::vector<unsigned int> &runs, const std::vector<unsigned int> &firstlumis, 
+	     const std::vector<unsigned int> &lastlumis) :
   jsonmap_(std::make_shared<jsonmap_t>()) {
     for (unsigned int i = 0; i < firstlumis.size(); ++i) {
       (*jsonmap_)[runs[i]].push_back(std::make_pair(firstlumis[i],lastlumis[i]));
@@ -400,7 +474,8 @@ public:
     const auto it = jsonmap_->find(run);
     if (it != jsonmap_->end()) {
       auto const &pairs = it->second;
-      auto const pairit = std::lower_bound(pairs.begin(), pairs.end(), lumi, [](const pair_t &pair, unsigned int val) { return pair.second < val; } );
+      auto const pairit = std::lower_bound(pairs.begin(), pairs.end(), lumi, 
+			[](const pair_t &pair, unsigned int val) { return pair.second < val; } );
       if (pairit != pairs.end()) {
         if (lumi >= pairit->first) {
           return true;
@@ -415,12 +490,15 @@ private:
   std::shared_ptr<jsonmap_t> jsonmap_;
 };
 
-void saveHistograms(ROOT::RDF::RResultPtr<THnT<double> > histo_pass, ROOT::RDF::RResultPtr<THnT<double> > histo_fail, std::string output_file) {
+void saveHistograms(ROOT::RDF::RResultPtr<THnT<double> > histo_pass, 
+		    ROOT::RDF::RResultPtr<THnT<double> > histo_fail, 
+                    std::string output_file) 
+{
   THnD Histo_pass=*(THnD*)histo_pass.GetPtr()->Clone();
   THnD Histo_fail=*(THnD*)histo_fail.GetPtr()->Clone();
   size_t found = output_file.find(std::string(".root"));
   for (unsigned int i=1; i<=Histo_pass.GetAxis(4)->GetNbins(); i++) {
-	std::string newoutputname(output_file.substr(0,found));
+    std::string newoutputname(output_file.substr(0,found));
     newoutputname+=std::string("_")+std::to_string(i)+std::string(".root");
     TFile f_out(newoutputname.c_str(),"RECREATE");
     Histo_pass.GetAxis(4)->SetRange(i,i);
