@@ -46,7 +46,8 @@ RVec<Int_t> CreateProbes_Muon(RVec<Float_t> &Muon_pt, RVec<Float_t> &Muon_standa
 			      RVec<Float_t> &Muon_eta,RVec<Float_t> &Muon_phi, 
 			      RVec<Float_t> &Muon_standaloneEta, RVec<Float_t> &Muon_standalonePhi, 
 			      RVec<Int_t> &Muon_charge, RVec<Bool_t> &Muon_mediumId, 
-			      RVec<Float_t> &Muon_dxybs,RVec<Bool_t> &Muon_isGlobal){
+			      RVec<Float_t> &Muon_dxybs,RVec<Bool_t> &Muon_isGlobal)
+{
   RVec<Int_t> Probe_Muons;
   for(int i=0;i<Muon_pt.size();i++){
     if(Muon_pt.at(i) < 15 || Muon_standalonePt.at(i) < 15 || abs(Muon_eta.at(i)) > 2.4 || 
@@ -66,7 +67,8 @@ RVec<Int_t> CreateProbes_Muon(RVec<Float_t> &Muon_pt, RVec<Float_t> &Muon_standa
 
 RVec<Int_t> CreateProbes_Track(RVec<Float_t> &Track_pt, RVec<Float_t> &Track_eta,
                                RVec<Float_t> &Track_phi,RVec<Int_t> &Track_charge, 
-                               RVec<Int_t> &Track_trackOriginalAlgo){
+                               RVec<Int_t> &Track_trackOriginalAlgo)
+{
 
   RVec<Int_t> Probe_Tracks;
   for(int i=0;i<Track_pt.size();i++){
@@ -86,7 +88,8 @@ RVec<Int_t> CreateProbes_Track(RVec<Float_t> &Track_pt, RVec<Float_t> &Track_eta
 
 RVec<Int_t> CreateProbes_MergedStandMuons(RVec<Float_t> &MergedStandAloneMuon_pt, 
 					  RVec<Float_t> &MergedStandAloneMuon_eta, 
-					  RVec<Float_t> &MergeStandAloneMuon_phi){
+					  RVec<Float_t> &MergeStandAloneMuon_phi)
+{
 
   RVec<Int_t> Probe_Stand;
   for(int i=0;i<MergedStandAloneMuon_pt.size();i++){
