@@ -188,6 +188,8 @@ if(args.efficiency == 1):
         d = d.Define("TPPairs","All_TPPairs[All_TPmass >40 && All_TPmass < 140]").Define("TPmass","All_TPmass[All_TPmass > 40 && All_TPmass < 140]")
 
         d = d.Define("Is_Pair_OS","isOS(TPPairs,Muon_charge,Track_charge)")
+    
+        d = d.Redefine("TPPairs,TPPairs[Is_Pair_OS]").Redefine("TPmass","TPmass[Is_Pair_OS]")
 
         d = d.Define("Probe_pt","getVariables(TPPairs,Track_pt,2)")
 
