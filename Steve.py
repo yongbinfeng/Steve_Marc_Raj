@@ -190,7 +190,7 @@ if(args.efficiency == 1):
 
         d = d.Define("Is_Pair_OS","isOS(TPPairs,Muon_charge,Track_charge)")
     
-        d = d.Redefine("TPPairs,TPPairs[Is_Pair_OS]").Redefine("TPmass","TPmass[Is_Pair_OS]")
+        d = d.Redefine("TPPairs","TPPairs[Is_Pair_OS]").Redefine("TPmass","TPmass[Is_Pair_OS]")
 
         d = d.Define("Probe_pt","getVariables(TPPairs,Track_pt,2)")
 
@@ -266,9 +266,9 @@ elif (args.efficiency == 2):
         d = d.Define("TPPairs_pass","TPPairs[Probe_isGlobal]")
         d = d.Define("TPmass_pass","getTPmass(TPPairs_pass,Muon_pt,Muon_eta,Muon_phi,Muon_pt,Muon_eta,Muon_phi)")
 
-        pass_histogram_tracking = d.Define("Probe_pt_pass","Probe_pt[Probe_isGlobal]").Define("Probe_eta_pass","Probe_eta[Probe_isGlobal]").Histo3D(model_pass_reco,"TPmass_pass","Probe_pt_pass","Probe_eta_pass","weight")
+        pass_histogram_tracking = d.Define("Probe_pt_pass","Probe_pt[Probe_isGlobal]").Define("Probe_eta_pass","Probe_eta[Probe_isGlobal]").Histo3D(model_pass_tracking,"TPmass_pass","Probe_pt_pass","Probe_eta_pass","weight")
 
-        fail_histogram_tracking = d.Define("Probe_pt_fail","Probe_pt[!Probe_isGlobal]").Define("Probe_eta_fail","Probe_eta[!Probe_isGlobal]").Define("TPmass_fail","TPmass[!Probe_isGlobal]").Histo3D(model_fail_reco,"TPmass_fail","Probe_pt_fail","Probe_eta_fail","weight")
+        fail_histogram_tracking = d.Define("Probe_pt_fail","Probe_pt[!Probe_isGlobal]").Define("Probe_eta_fail","Probe_eta[!Probe_isGlobal]").Define("TPmass_fail","TPmass[!Probe_isGlobal]").Histo3D(model_fail_tracking,"TPmass_fail","Probe_pt_fail","Probe_eta_fail","weight")
 
         pass_histogram_tracking.Write()
         fail_histogram_tracking.Write()
@@ -288,7 +288,8 @@ elif (args.efficiency == 2):
 
 ## Muons for all other efficiency
 else:
-    d = d.Define("GenMatchedIdx","GenMatchedIdx(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,Muon_eta,Muon_phi)")
+    if(args.isData != 1):
+        d = d.Define("GenMatchedIdx","GenMatchedIdx(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,Muon_eta,Muon_phi)")
 
     d = d.Define("Probe_Muons","CreateProbes_Muon(Muon_pt,Muon_standalonePt,Muon_eta,Muon_phi,Muon_standaloneEta,Muon_standalonePhi,Muon_charge,Muon_mediumId,Muon_dxybs,Muon_isGlobal)")
 
@@ -305,7 +306,7 @@ else:
     
     d = d.Define("Is_Pair_OS","isOS(TPPairs,Muon_charge,Muon_charge)")
     
-    d = d.Redefine("TPPairs,TPPairs[Is_Pair_OS]").Redefine("TPmass","TPmass[Is_Pair_OS]")
+    d = d.Redefine("TPPairs","TPPairs[Is_Pair_OS]").Redefine("TPmass","TPmass[Is_Pair_OS]")
 
     d = d.Define("Probe_charge","getVariables(TPPairs,Muon_charge,2)")
 
@@ -346,7 +347,7 @@ else:
 
             pass_histogram_ID = d.Define("Probe_pt_pass","Probe_pt[Probe_mediumId && abs(Probe_dxybs)<0.05]").Define("Probe_eta_pass","Probe_eta[Probe_mediumId && abs(Probe_dxybs)<0.05]").Define("TPmass_pass","TPmass[Probe_mediumId && abs(Probe_dxybs)<0.05]").Histo3D(model_pass_ID,"TPmass_pass","Probe_pt_pass","Probe_eta_pass","weight")
 
-            fail_histogram_ID = d.Define("Probe_pt_fail","Probe_pt[!(Probe_mediumId && abs(Probe_dxybs)<0.05)]").Define("Probe_eta_fail","Probe_eta[!(Probe_mediumId && abs(Probe_dxybs)<0.05))]").Define("TPmass_fail","TPmass[!(Probe_mediumId && abs(Probe_dxybs)<0.05)]").Histo3D(model_fail_ID,"TPmass_fail","Probe_pt_fail","Probe_eta_fail","weight")
+            fail_histogram_ID = d.Define("Probe_pt_fail","Probe_pt[!(Probe_mediumId && abs(Probe_dxybs)<0.05)]").Define("Probe_eta_fail","Probe_eta[!(Probe_mediumId && abs(Probe_dxybs)<0.05)]").Define("TPmass_fail","TPmass[!(Probe_mediumId && abs(Probe_dxybs)<0.05)]").Histo3D(model_fail_ID,"TPmass_fail","Probe_pt_fail","Probe_eta_fail","weight")
 
             pass_histogram_ID.Write()
             fail_histogram_ID.Write()
