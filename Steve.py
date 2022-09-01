@@ -35,7 +35,8 @@ def make_jsonhelper(filename):
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument("-e","--efficiency", help="1 for reco, 2 for \"tracking\", 3 for idip, 4 for trigger, 5 for isolation, 6 for isolation without trigger",
+parser.add_argument("-e","--efficiency",
+		    help="1 for reco, 2 for \"tracking\", 3 for idip, 4 for trigger, 5 for isolation, 6 for isolation without trigger",
                     type=int)
 parser.add_argument("-i","--input_path", help="path of the input root files",
                     type=str)
@@ -150,7 +151,7 @@ d = d.Define("isTriggeredMuon","hasTriggerMatch(Muon_eta,Muon_phi,TrigObj_id,Tri
 if(args.isData == 1):
     d = d.Define("isGenMatchedMuon","createTrues(nMuon)")
 else: 
-    d = d.Define("isGenMatchedMuon","hasGenMatch(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,Muon_eta,Muon_phi,0.1)")
+    d = d.Define("isGenMatchedMuon","hasGenMatch(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,Muon_eta,Muon_phi)")
 
 d = d.Define("isTag","Muon_pt > 25 && abs(Muon_eta) < 2.4 && Muon_pfRelIso04_all < 0.15 && abs(Muon_dxybs) < 0.05 && Muon_mediumId && Muon_isGlobal")
 
@@ -168,15 +169,15 @@ if (args.genLevelEfficiency):
 ## Tracks for reco efficiency
 if(args.efficiency == 1):
     if not (args.genLevelEfficiency):
-        d = d.Define("trackHasStandAloneorGlobalMatch","hasStandAloneOrGlobalMatch(Track_eta,Track_phi,Muon_eta,Muon_phi,Muon_isStandalone,Muon_isGlobal)")
+        #d = d.Define("trackHasStandAloneorGlobalMatch","hasStandAloneOrGlobalMatch(Track_eta,Track_phi,Muon_eta,Muon_phi,Muon_isStandalone,Muon_isGlobal)")
 
         if(args.isData == 1):
             d = d.Define("isGenMatchedTrack","createTrues(nTrack)")
         else:
-            d = d.Define("isGenMatchedTrack","hasGenMatch(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,Track_eta,Track_phi,0.1)")
+            d = d.Define("isGenMatchedTrack","hasGenMatch(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,Track_eta,Track_phi)")
             d = d.Define("GenMatchedIdx","GenMatchedIdx(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,Track_eta,Track_phi)")
 
-        d = d.Define("trackMuonDR","trackMuonDR(Track_eta,Track_phi,Muon_eta,Muon_phi)")
+        #d = d.Define("trackMuonDR","trackMuonDR(Track_eta,Track_phi,Muon_eta,Muon_phi)")
 
         d = d.Define("trackStandaloneDR","trackStandaloneDR(Track_eta,Track_phi,MergedStandAloneMuon_eta,MergedStandAloneMuon_phi)")
         d = d.Define("Probe_Tracks","CreateProbes_Track(Track_pt,Track_eta,Track_phi,Track_charge,Track_trackOriginalAlgo)")
@@ -203,6 +204,7 @@ if(args.efficiency == 1):
             d = d.Redefine("Probe_eta","getGenVariables(TPPairs,GenMatchedIdx,GenPart_eta,2)")
             d = d.Redefine("Probe_phi","getGenVariables(TPPairs,GenMatchedIdx,GenPart_phi,2)")
 
+        binning_pt = array('d',[24., 65.])
     
         model_pass_reco = ROOT.RDF.TH3DModel("pass_mu_"+histo_name, "Reco_pass",len(binning_mass)-1, binning_mass, len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta)
         model_fail_reco = ROOT.RDF.TH3DModel("fail_mu_"+histo_name, "Reco_fail",len(binning_mass)-1, binning_mass, len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta)
@@ -256,10 +258,15 @@ elif (args.efficiency == 2):
 
         d = d.Define("Probe_isGlobal","Probe_isGlobal(TPPairs,MergedStandAloneMuon_extraIdx,Muon_standaloneExtraIdx,Muon_isGlobal,Muon_pt,Muon_eta,Muon_phi,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi)")
 
+        binning_pt = array('d',[24., 65.])
         model_pass_tracking = ROOT.RDF.TH3DModel("pass_mu_"+histo_name, "\"Tracking\"_pass",len(binning_mass)-1, binning_mass, len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta)
         model_fail_tracking = ROOT.RDF.TH3DModel("fail_mu_"+histo_name, "\"Tracking\"_fail",len(binning_mass)-1, binning_mass, len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta)
 
-        pass_histogram_tracking = d.Define("Probe_pt_pass","Probe_pt[Probe_isGlobal]").Define("Probe_eta_pass","Probe_eta[Probe_isGlobal]").Define("TPmass_pass","TPmass[Probe_isGlobal]").Histo3D(model_pass_reco,"TPmass_pass","Probe_pt_pass","Probe_eta_pass","weight")
+        # Since we are using the muon variables to calulate the mass for the passing probes for tracking efficiency
+        d = d.Define("TPPairs_pass","TPPairs[Probe_isGlobal]")
+        d = d.Define("TPmass_pass","getTPmass(TPPairs_pass,Muon_pt,Muon_eta,Muon_phi,Muon_pt,Muon_eta,Muon_phi)")
+
+        pass_histogram_tracking = d.Define("Probe_pt_pass","Probe_pt[Probe_isGlobal]").Define("Probe_eta_pass","Probe_eta[Probe_isGlobal]").Histo3D(model_pass_reco,"TPmass_pass","Probe_pt_pass","Probe_eta_pass","weight")
 
         fail_histogram_tracking = d.Define("Probe_pt_fail","Probe_pt[!Probe_isGlobal]").Define("Probe_eta_fail","Probe_eta[!Probe_isGlobal]").Define("TPmass_fail","TPmass[!Probe_isGlobal]").Histo3D(model_fail_reco,"TPmass_fail","Probe_pt_fail","Probe_eta_fail","weight")
 

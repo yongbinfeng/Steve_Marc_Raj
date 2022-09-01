@@ -73,7 +73,7 @@ RVec<Int_t> CreateProbes_Track(RVec<Float_t> &Track_pt, RVec<Float_t> &Track_eta
 
   RVec<Int_t> Probe_Tracks;
   for(int i=0;i<Track_pt.size();i++){
-    if(Track_pt.at(i) < 15. || abs(Track_eta.at(i) > 2.4) || 
+    if(Track_pt.at(i) < 15. || abs(Track_eta.at(i)) > 2.4 || 
        Track_trackOriginalAlgo.at(i) == 13 || Track_trackOriginalAlgo.at(i) == 14) continue;
     //Probe probe_track;
     //probe_track.pt = Track_pt.at(i);
@@ -147,7 +147,7 @@ RVec<Bool_t> hasStandAloneOrGlobalMatch(RVec<Float_t> &Track_eta, RVec<Float_t> 
     bool has_match = false;
     for (int iMuon=0; iMuon<Muon_eta.size(); ++iMuon){
       if (!(Muon_isStandalone[iMuon] || Muon_isGlobal[iMuon])) continue;
-      if (deltaR(Muon_eta[iMuon], Muon_phi[iMuon], Track_eta[iTrack], Track_phi[iTrack]) < 0.01)
+      if (deltaR(Muon_eta[iMuon], Muon_phi[iMuon], Track_eta[iTrack], Track_phi[iTrack]) < 0.1)
       {
 	has_match = 1; 
 	break;
@@ -224,7 +224,7 @@ RVec<Bool_t> hasTriggerMatch(RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi,
 RVec<Bool_t> hasGenMatch(RVec<Int_t> &GenPart_pdgId, RVec<Int_t> &GenPart_status,
 			 RVec<Int_t> &GenPart_statusFlags, RVec<Float_t> &GenPart_eta,
 			 RVec<Float_t> &GenPart_phi, RVec<Float_t> &Cand_eta, 
-			 RVec<Float_t> &Cand_phi, double dR_angle)
+			 RVec<Float_t> &Cand_phi, double dR_angle=0.1)
 {
   RVec<Bool_t> isGenMatched;  
   for(int iCand=0;iCand<Cand_eta.size();iCand++){
