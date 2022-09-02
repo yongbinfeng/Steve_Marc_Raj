@@ -145,17 +145,29 @@ else:
     d = d.Define("weight","gen_weight*pu_weight")
 
 ## For Tag Muons
-d = d.Define("isTriggeredMuon","hasTriggerMatch(Muon_eta,Muon_phi,TrigObj_id,TrigObj_pt,TrigObj_l1pt,TrigObj_l2pt,TrigObj_filterBits,TrigObj_eta,TrigObj_phi)")
+d = d.Define("isTriggeredMuon","hasTriggerMatch(Muon_eta,Muon_phi,TrigObj_id,TrigObj_filterBits,TrigObj_eta,TrigObj_phi)")
 
 if(args.isData == 1):
     d = d.Define("isGenMatchedMuon","createTrues(nMuon)")
 else: 
-    d = d.Define("isGenMatchedMuon","hasGenMatch(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,Muon_eta,Muon_phi)")
+    d = d.Define("GenMuonBare", "GenPart_status == 1 && (GenPart_statusFlags & 1) && abs(GenPart_pdgId) == 13")
+    d = d.Define("GenMuonBare_pt", "GenPart_pt[GenMuonBare]")
+    d = d.Define("GenMuonBare_eta", "GenPart_eta[GenMuonBare]")
+    d = d.Define("GenMuonBare_phi", "GenPart_phi[GenMuonBare]")
+    d = d.Define("GenMuonBare_pdgId", "GenPart_pdgId[GenMuonBare]")
+    d = d.Define("isGenMatchedMuon","hasGenMatch(GenMuonBare_eta, GenMuonBare_phi, Muon_eta, Muon_phi)")
 
-d = d.Define("isTag","Muon_pt > 25 && abs(Muon_eta) < 2.4 && Muon_pfRelIso04_all < 0.15 && abs(Muon_dxybs) < 0.05 && Muon_mediumId && Muon_isGlobal")
+## Define tags as trigger matched and gen matched (gen match can be removed with an option in case)
+## d = d.Define("isTag","Muon_pt > 25 && abs(Muon_eta) < 2.4 && Muon_pfRelIso04_all < 0.15 && abs(Muon_dxybs) < 0.05 && Muon_mediumId && Muon_isGlobal")
+d = d.Define("Tag_Muons","Muon_pt > 25 && abs(Muon_eta) < 2.4 && Muon_pfRelIso04_all < 0.15 && abs(Muon_dxybs) < 0.05 && Muon_mediumId && Muon_isGlobal && isTriggeredMuon && isGenMatchedMuon")
+# just for utility
+d = d.Alias("isTag", "Tag_Muons") # until I remove isTag from everywhere below
+d = d.Alias("Tag_pt",  "Muon_pt")
+d = d.Alias("Tag_eta", "Muon_eta")
+d = d.Alias("Tag_phi", "Muon_phi")
 
 if (args.genLevelEfficiency):
-    d = d.Define("zero","0").Define("one","1")
+    d = d.Define("zero","0").Define("one","1") # is this really needed? Can't we just pass 1 or 0 in the functions where we need it?
     d = d.Define("GenPart_postFSRLepIdx1","PostFSRIdx(GenPart_pdgId,GenPart_status,GenPart_genPartIdxMother,GenPart_statusFlags,GenPart_pt,zero)")
     d = d.Define("GenPart_postFSRLepIdx2","PostFSRIdx(GenPart_pdgId,GenPart_status,GenPart_genPartIdxMother,GenPart_statusFlags,GenPart_pt,one)")
     d = d.Define("goodgenpt","goodgenvalue(GenPart_pt,GenPart_postFSRLepIdx1,GenPart_postFSRLepIdx2,GenPart_eta,GenPart_phi,GenPart_status,GenPart_pdgId)")
@@ -168,36 +180,45 @@ if (args.genLevelEfficiency):
 ## Tracks for reco efficiency
 if(args.efficiency == 1):
     if not (args.genLevelEfficiency):
-        d = d.Define("trackHasStandAloneorGlobalMatch","hasStandAloneOrGlobalMatch(Track_eta,Track_phi,Muon_eta,Muon_phi,Muon_isStandalone,Muon_isGlobal)")
 
         if(args.isData == 1):
             d = d.Define("isGenMatchedTrack","createTrues(nTrack)")
         else:
-            d = d.Define("isGenMatchedTrack","hasGenMatch(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,Track_eta,Track_phi)")
-            d = d.Define("GenMatchedIdx","GenMatchedIdx(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,Track_eta,Track_phi)")
+            d = d.Define("isGenMatchedTrack", "hasGenMatch(  GenMuonBare_eta, GenMuonBare_phi, Track_eta, Track_phi)")
+            d = d.Define("GenMatchedIdx",     "GenMatchedIdx(GenMuonBare_eta, GenMuonBare_phi, Track_eta, Track_phi)")
 
-        d = d.Define("trackMuonDR","trackMuonDR(Track_eta,Track_phi,Muon_eta,Muon_phi)")
+        # d = d.Define("trackMuonDR","trackMuonDR(Track_eta,Track_phi,Muon_eta,Muon_phi)")  # FIXME not used anywhere apparently
 
-        d = d.Define("trackStandaloneDR","trackStandaloneDR(Track_eta,Track_phi,MergedStandAloneMuon_eta,MergedStandAloneMuon_phi)")
-        d = d.Define("Probe_Tracks","CreateProbes_Track(Track_pt,Track_eta,Track_phi,Track_charge,Track_trackOriginalAlgo)")
+        # d = d.Define("Probe_Tracks","CreateProbes_Track(Track_pt,Track_eta,Track_phi,Track_charge,Track_trackOriginalAlgo)")
+        d = d.Define("Probe_Tracks","Track_pt > 15 && abs(Track_eta) < 2.4 && Track_trackOriginalAlgo != 13 && Track_trackOriginalAlgo != 14 && isGenMatchedTrack")
 
-        d = d.Define("All_TPPairs","CreateTPPair(Muon_charge,isTag,isTriggeredMuon,isGenMatchedMuon,Probe_Tracks,isGenMatchedTrack)")
+        d = d.Define("trackStandaloneDR", "trackStandaloneDR(Track_eta,Track_phi,MergedStandAloneMuon_eta,MergedStandAloneMuon_phi)")
+        d = d.Define("pass_Probe_Tracks", "Probe_Tracks && trackStandaloneDR < 0.3")
+        d = d.Define("fail_Probe_Tracks", "Probe_Tracks && trackStandaloneDR > 0.3")
+        
+        # d = d.Define("All_TPPairs","CreateTPPair(Muon_charge,isTag,isTriggeredMuon,isGenMatchedMuon,Probe_Tracks,isGenMatchedTrack)")
+        
+        # 1 below means doOppositeCharge
+        d = d.Define("All_TPPairs", "CreateTPPairTEST(Tag_Muons, Probe_Tracks, 1, Muon_charge, Track_charge)")
+        d = d.Define("All_TPmass", "getTPmass(All_TPPairs, Tag_pt, Tag_eta, Tag_phi, Track_pt, Track_eta, Track_phi)")
+        ## add mass cut directly in CreateTPPairTEST, with edges passed as arguments?
+        d = d.Define("TPPairs", "All_TPPairs[All_TPmass >40 && All_TPmass < 140]")
+        d = d.Define("TPmass", "All_TPmass[All_TPmass > 40 && All_TPmass < 140]")
 
-        d = d.Define("All_TPmass","getTPmass(All_TPPairs,Muon_pt,Muon_eta,Muon_phi,Track_pt,Track_eta,Track_phi)")
+        d = d.Define("Probe_pt",  "getVariables(TPPairs, Track_pt,  2)")
+        d = d.Define("Probe_eta", "getVariables(TPPairs, Track_eta, 2)")
+        d = d.Define("Probe_phi", "getVariables(TPPairs, Track_phi, 2)")
 
-        d = d.Define("TPPairs","All_TPPairs[All_TPmass >40 && All_TPmass < 140]").Define("TPmass","All_TPmass[All_TPmass > 40 && All_TPmass < 140]")
+        d = d.Define("pass_Probe_pt",  "Probe_pt[pass_Probe_Tracks]")
+        d = d.Define("pass_Probe_eta", "Probe_eta[pass_Probe_Tracks]")
+        d = d.Define("pass_Probe_phi", "Probe_phi[pass_Probe_Tracks]")
+        d = d.Define("pass_TPmass",    "TPmass[pass_Probe_Tracks]")
 
-        d = d.Define("Is_Pair_OS","isOS(TPPairs,Muon_charge,Track_charge)")
-    
-        d = d.Redefine("TPPairs,TPPairs[Is_Pair_OS]").Redefine("TPmass","TPmass[Is_Pair_OS]")
-
-        d = d.Define("Probe_pt","getVariables(TPPairs,Track_pt,2)")
-
-        d = d.Define("Probe_eta","getVariables(TPPairs,Track_eta,2)")
-
-        d = d.Define("Probe_phi","getVariables(TPPairs,Track_phi,2)")
-
-        d = d.Define("Probe_StandaloneDR","getVariables(TPPairs,trackStandaloneDR,2)")
+        d = d.Define("fail_Probe_pt",  "Probe_pt[fail_Probe_Tracks]")
+        d = d.Define("fail_Probe_eta", "Probe_eta[fail_Probe_Tracks]")
+        d = d.Define("fail_Probe_phi", "Probe_phi[fail_Probe_Tracks]")
+        d = d.Define("fail_TPmass",    "TPmass[pass_Probe_Tracks]")
+        
         if (args.tnpGenLevel):
             d = d.Redefine("Probe_pt","getGenVariables(TPPairs,GenMatchedIdx,GenPart_pt,2)")
             d = d.Redefine("Probe_eta","getGenVariables(TPPairs,GenMatchedIdx,GenPart_eta,2)")
@@ -207,13 +228,14 @@ if(args.efficiency == 1):
         model_pass_reco = ROOT.RDF.TH3DModel("pass_mu_"+histo_name, "Reco_pass",len(binning_mass)-1, binning_mass, len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta)
         model_fail_reco = ROOT.RDF.TH3DModel("fail_mu_"+histo_name, "Reco_fail",len(binning_mass)-1, binning_mass, len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta)
 
-        pass_histogram_reco = d.Define("Probe_pt_pass","Probe_pt[Probe_StandaloneDR<0.3]").Define("Probe_eta_pass","Probe_eta[Probe_StandaloneDR<0.3]").Define("TPmass_pass","TPmass[Probe_StandaloneDR<0.3]").Histo3D(model_pass_reco,"TPmass_pass","Probe_pt_pass","Probe_eta_pass","weight")
+        pass_histogram_reco = d.Histo3D(model_pass_reco, "pass_TPmass", "pass_Probe_pt", "pass_Probe_eta", "weight")
 
-        fail_histogram_reco = d.Define("Probe_pt_fail","Probe_pt[Probe_StandaloneDR>0.3]").Define("Probe_eta_fail","Probe_eta[Probe_StandaloneDR>0.3]").Define("TPmass_fail","TPmass[Probe_StandaloneDR>0.3]").Histo3D(model_fail_reco,"TPmass_fail","Probe_pt_fail","Probe_eta_fail","weight")
+        fail_histogram_reco = d.Histo3D(model_fail_reco, "fail_TPmass", "fail_Probe_pt", "fail_Probe_eta", "weight")
 
         pass_histogram_reco.Write()
         fail_histogram_reco.Write()
     else:
+        # check this part
         d = d.Define("goodmuon","goodmuonreco(goodgeneta,goodgenphi,MergedStandAloneMuon_pt,MergedStandAloneMuon_eta,MergedStandAloneMuon_phi)").Define("newweight","weight*goodmuon")
 
         model_pass_reco = ROOT.RDF.TH2DModel("Pass","",len(binning_eta)-1,binning_eta,len(binning_pt)-1,binning_pt)
@@ -235,7 +257,8 @@ elif (args.efficiency == 2):
             d = d.Define("isGenMatchedMergedStandMuon","hasGenMatch(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,MergedStandAloneMuon_eta,MergedStandAloneMuon_phi)")
             d = d.Define("GenMatchedIdx","GenMatchedIdx(GenPart_pdgId,GenPart_status,GenPart_statusFlags,GenPart_eta,GenPart_phi,MergedStandAloneMuon_eta,MergedStandAloneMuon_phi)")
 
-        d = d.Define("Probe_MergedStandMuons","CreateProbes_MergedStandMuons(MergedStandAloneMuon_pt,MergedStandAloneMuon_eta,MergedStandAloneMuon_phi)")
+        # d = d.Define("Probe_MergedStandMuons","CreateProbes_MergedStandMuons(MergedStandAloneMuon_pt,MergedStandAloneMuon_eta,MergedStandAloneMuon_phi)") this just cuts on pt an returns RVec<Int_t>
+        d = d.Define("Probe_MergedStandMuons","MergedStandAloneMuon_pt > 15")
 
         d = d.Define("All_TPPairs","CreateTPPair(Muon_charge,isTag,isTriggeredMuon,isGenMatchedMuon,Probe_MergedStandMuons,isGenMatchedMergedStandMuon)")
 

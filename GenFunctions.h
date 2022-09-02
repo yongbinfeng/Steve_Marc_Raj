@@ -187,7 +187,7 @@ RVec<bool> goodmuonreco(RVec<float> &goodgeneta, RVec<float> &goodgenphi, RVec<f
   for (auto i=0U;i < goodgeneta.size(); ++i) {
     std::vector<std::pair<double,int> > Map;
     for (auto j=0U; j < MergedStandAloneMuon_eta.size(); ++j) {
-      TLorentzVector cand, cand2;
+        TLorentzVector cand, cand2;
       cand.SetPtEtaPhiM(5.,goodgeneta[i],goodgenphi[i],0.);
       cand2.SetPtEtaPhiM(5.,MergedStandAloneMuon_eta[j],MergedStandAloneMuon_phi[j],0.);
       insert(Map,{cand.DeltaR(cand2),j});
