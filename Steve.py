@@ -148,7 +148,7 @@ d = d.Filter("HLT_IsoMu24 || HLT_IsoTkMu24","HLT Cut")
 
 d = d.Filter("PV_npvsGood >= 1","NVtx Cut")
 
-doOS = not args.noOppositeCharge
+doOS = 0 if args.noOppositeCharge else 1
 
 if (args.isData == 1):
     jsonhelper = make_jsonhelper("Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt")
@@ -215,7 +215,7 @@ if(args.efficiency == 1):
         # FIXME: add other criteria to the MergedStandAloneMuon to accept the matching? E.g. |eta| < 2.4 or pt > XX?
         d = d.Define("passCondition_reco", "trackStandaloneDR(Track_eta,Track_phi, MergedStandAloneMuon_eta, MergedStandAloneMuon_phi) < 0.3")
         
-        d = d.Define("All_TPPairs", "CreateTPPairTEST(Tag_Muons, Probe_Tracks, doOS, Tag_charge, Track_charge)")
+        d = d.Define("All_TPPairs", f"CreateTPPairTEST(Tag_Muons, Probe_Tracks, {doOS}, Tag_charge, Track_charge)")
         d = d.Define("All_TPmass", "getTPmassTEST(All_TPPairs, Tag_pt, Tag_eta, Tag_phi, Track_pt, Track_eta, Track_phi)")
 
         # overriding previous pt binning
@@ -351,7 +351,7 @@ else:
     #        3) For Muon_pt we might just use the histogram acceptance
     d = d.Define("BasicProbe_Muons","Muon_isGlobal && Muon_pt > 15 && Muon_standalonePt > 15 && abs(Muon_eta) < 2.4 && selfDeltaR(Muon_eta, Muon_phi, Muon_standaloneEta, Muon_standalonePhi) < 0.3 && isGenMatchedMuon {chargeCut}")
 
-    d = d.Define("All_TPPairs","CreateTPPairTEST(Tag_Muons, BasicProbe_Muons, doOS, Tag_charge, Muon_charge)")
+    d = d.Define("All_TPPairs", f"CreateTPPairTEST(Tag_Muons, BasicProbe_Muons, {doOS}, Tag_charge, Muon_charge)")
     d = d.Define("All_TPmass","getTPmassTEST(All_TPPairs, Tag_pt, Tag_eta, Tag_phi, Muon_pt, Muon_eta, Muon_phi)")
     massLow  =  50
     massHigh = 130
