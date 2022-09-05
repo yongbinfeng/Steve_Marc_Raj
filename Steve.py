@@ -15,7 +15,7 @@ import time
 import argparse
 
 
-def makeAndSaveHistograms(histo_name, histo_title, binning_mass, binning_pt, binning_eta):
+def makeAndSaveHistograms(d, histo_name, histo_title, binning_mass, binning_pt, binning_eta):
 
     model_pass = ROOT.RDF.TH3DModel(f"pass_mu_{histo_name}", f"{histo_title}_pass", len(binning_mass)-1, binning_mass, len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta)
     model_fail = ROOT.RDF.TH3DModel(f"fail_mu_{histo_name}", f"{histo_title}_fail", len(binning_mass)-1, binning_mass, len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta)
@@ -62,6 +62,8 @@ parser.add_argument("-d","--isData", help="Pass 0 for MC, 1 for Data, default is
 
 parser.add_argument("-c","--charge", help="Make efficiencies for a specific charge of the probe (-1/1 for positive negative, 0 for inclusive)",
                     type=int, default=0, choices=[-1, 0, 1])
+
+parser.add_argument("-vpw", "--vertexPileupWeight", action="store_true", help="Use weights for vertex z position versus pileup (only for MC)")
 
 parser.add_argument("-nos", "--noOppositeCharge", action="store_true", help="Don't require opposite charges between tag and probe (note that tracking still never uses it with standalone muons)")
 
@@ -112,8 +114,6 @@ for name in files: filenames.push_back(name)
 
 d = ROOT.RDataFrame("Events",filenames )
 
-f_out = ROOT.TFile(args.output_file,"RECREATE")
-
 binning_pt = array('d',[24., 26., 28., 30., 32., 34., 36., 38., 40., 42., 44., 47., 50., 55., 60., 65.])
 binning_eta = array('d',[round(-2.4 + i*0.1,2) for i in range(49)])
 binning_mass = array('d',[50 + i for i in range(81)])
@@ -159,10 +159,17 @@ if (args.isData == 1):
 if(args.isData == 1):
     d = d.Define("weight","1")
 else:
+    if args.vertexPileupWeight:
+        if hasattr(ROOT, "initializeVertexPileupWeights"):
+            print("Initializing histograms with vertex-pileup weights")
+            ROOT.initializeVertexPileupWeights("./utility/vertexPileupWeights.root")
+            d = d.Define("vertex_weight", "_get_vertexPileupWeight(GenVtx_z,Pileup_nTrueInt,2)")
+    else:
+        d = d.Define("vertex_weight", "1.0")
     d = d.Define("gen_weight", "clipGenWeight(genWeight)") #for now (testing)
     d = d.Define("pu_weight", "puw_2016(Pileup_nTrueInt,2)")
-    d = d.Define("weight", "gen_weight*pu_weight")
-
+    d = d.Define("weight", "gen_weight*pu_weight*vertex_weight")
+    
 ## For Tag Muons
 d = d.Define("isTriggeredMuon","hasTriggerMatch(Muon_eta, Muon_phi, TrigObj_id, TrigObj_filterBits, TrigObj_eta, TrigObj_phi)")
 
@@ -197,6 +204,8 @@ if (args.genLevelEfficiency):
     # this might be done simply as
     # d = d.Define("goodgenpt", "GenMuonBare_pt") # the collection might have more than 2 elements here, but can be easily filtered (should be sorted too)
 
+# Open output file
+f_out = ROOT.TFile(args.output_file,"RECREATE")
     
 ## Tracks for reco efficiency
 if(args.efficiency == 1):
@@ -237,16 +246,15 @@ if(args.efficiency == 1):
         if (args.tnpGenLevel):
             d = d.Redefine("Probe_pt","getGenVariables(TPPairs,GenMatchedIdx,GenMuonBare_pt,2)")
             d = d.Redefine("Probe_eta","getGenVariables(TPPairs,GenMatchedIdx,GenMuonBare_eta,2)")
-            d = d.Redefine("Probe_phi","getGenVariables(TPPairs,GenMatchedIdx,GenMuonBare_phi,2)")
         
-        d = d.Define("pass_Probe_pt",  "Probe_pt[passCondition]")
-        d = d.Define("pass_Probe_eta", "Probe_eta[passCondition]")
-        d = d.Define("pass_TPmass", "TPmass[passCondition]")
-        d = d.Define("fail_Probe_pt",  "Probe_pt[failCondition]")
-        d = d.Define("fail_Probe_eta", "Probe_eta[failCondition]")
-        d = d.Define("fail_TPmass", "TPmass[failCondition]")
-        makeAndSaveHistograms(histo_name, "Reco", binning_mass, binning_pt, binning_eta)
-
+        d = d.Define("Probe_pt_pass",  "Probe_pt[passCondition]")
+        d = d.Define("Probe_eta_pass", "Probe_eta[passCondition]")
+        d = d.Define("TPmass_pass", "TPmass[passCondition]")
+        d = d.Define("Probe_pt_fail",  "Probe_pt[failCondition]")
+        d = d.Define("Probe_eta_fail", "Probe_eta[failCondition]")
+        d = d.Define("TPmass_fail", "TPmass[failCondition]")
+        makeAndSaveHistograms(d, histo_name, "Reco", binning_mass, binning_pt, binning_eta)
+        
     else:
         d = d.Define("goodmuon","goodmuonreco(goodgeneta,goodgenphi,MergedStandAloneMuon_pt,MergedStandAloneMuon_eta,MergedStandAloneMuon_phi)").Define("newweight","weight*goodmuon")
 
@@ -285,12 +293,10 @@ elif (args.efficiency == 2):
 
         d = d.Define("Probe_pt",  "getVariables(TPPairs, MergedStandAloneMuon_pt,  2)")
         d = d.Define("Probe_eta", "getVariables(TPPairs, MergedStandAloneMuon_eta, 2)")
-        #d = d.Define("Probe_phi", "getVariables(TPPairs, MergedStandAloneMuon_phi, 2)")
 
         if (args.tnpGenLevel):
             d = d.Redefine("Probe_pt","getGenVariables(TPPairs,GenMatchedIdx,GenMuonBare_pt,2)")
             d = d.Redefine("Probe_eta","getGenVariables(TPPairs,GenMatchedIdx,GenMuonBare_eta,2)")
-            d = d.Define("Probe_phi","getGenVariables(TPPairs,GenMatchedIdx,GenMuonBare_phi,2)")
 
         # condition for passing probe, start from Muon_XX and then add match of extraID indices between Muon and MergedStandAloneMuon
         ## FIXME: 1) Q. do we want/need the DR here? It does almost nothing, though
@@ -299,9 +305,9 @@ elif (args.efficiency == 2):
         ##        2) Q. Do we have to use abs(Muon_eta) < 2.4 as well? Efficiency in last eta bin changes from 97% to 98.8% when removing this cut.
         ##           A. We don't cut, it is just resolution effect
         ##        3) Q. What Muon_pt cut to use? 5, 10, 15? Difference between 10 and 15 is very small, at most few 0.1% in last eta bins, it is mainly a resolution effect
-        ##              It mainly depends on whether the histogram range starts from 24 or less, since this Muon_pt cut will contribute less is Muon_standalonePt > 24
+        ##              It mainly depends on whether the histogram range starts from 24 or less, since this Muon_pt cut will contribute less if Muon_standalonePt > 24
         d = d.Define("Muon_forTracking", "Muon_isGlobal && Muon_pt > 15 && Muon_standalonePt > 15 && selfDeltaR(Muon_eta, Muon_phi, Muon_standaloneEta, Muon_standalonePhi) < 0.3")
-        # check Muon exist with proper criteria and matching extraIdx with the standalone muon 
+        # check Muon exists with proper criteria and matching extraIdx with the standalone muon 
         d = d.Define("passCondition_tracking", "Probe_isGlobalTEST(TPPairs, MergedStandAloneMuon_extraIdx, Muon_standaloneExtraIdx, Muon_forTracking)")
 
         binning_pt = array('d',[24., 65.])
@@ -323,7 +329,7 @@ elif (args.efficiency == 2):
         d = d.Define("Probe_pt_fail",  "Probe_pt[!passCondition_tracking]")
         d = d.Define("Probe_eta_fail", "Probe_eta[!passCondition_tracking]")
 
-        makeAndSaveHistograms(histo_name, "Tracking", binning_mass, binning_pt, binning_eta)
+        makeAndSaveHistograms(d, histo_name, "Tracking", binning_mass, binning_pt, binning_eta)
         
     else:
         d = d.Define("goodmuon","goodmuonglobal(goodgeneta,goodgenphi,Muon_pt,Muon_eta,Muon_phi,Muon_isGlobal,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi)").Define("newweight","weight*goodmuon")
@@ -373,7 +379,6 @@ else:
     if (args.tnpGenLevel):
         d = d.Redefine("BasicProbe_pt",  "getGenVariables(TPPairs,GenMatchedIdx,GenMuonBare_pt,2)")
         d = d.Redefine("BasicProbe_eta", "getGenVariables(TPPairs,GenMatchedIdx,GenMuonBare_eta,2)")
-        d = d.Define("BasicProbe_phi",   "getGenVariables(TPPairs,GenMatchedIdx,GenMuonBare_phi,2)")
         d = d.Redefine("BasicProbe_u",   "zqtprojectionGen(TPPairs,GenMatchedIdx,GenMuonBare_pt,GenMuonBare_eta,GenMuonBare_phi)")
 
     ## IMPORTANT: define only the specific condition to be passed, not with the && of previous steps (although in principle it is the same as long as that one is already applied)
@@ -396,7 +401,7 @@ else:
             d = d.Define("Probe_pt_fail",  "BasicProbe_pt[failCondition]")
             d = d.Define("Probe_eta_fail", "BasicProbe_eta[failCondition]")
             d = d.Define("TPmass_fail",    "BasicTPmass[failCondition]")
-            makeAndSaveHistograms(histo_name, "IDIP", binning_mass, binning_pt, binning_eta)
+            makeAndSaveHistograms(d, histo_name, "IDIP", binning_mass, binning_pt, binning_eta)
         else:
             d = d.Define("goodmuon","goodmuonglobal(goodgeneta,goodgenphi,Muon_pt,Muon_eta,Muon_phi,Muon_isGlobal,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi,Muon_dxybs,Muon_mediumId)")
             d = d.Define("newweight","weight*goodmuon")
@@ -481,7 +486,7 @@ else:
 
         else:
             if not (args.genLevelEfficiency):
-                makeAndSaveHistograms(histo_name, "Trigger", binning_mass, binning_pt, binning_eta)
+                makeAndSaveHistograms(d, histo_name, "Trigger", binning_mass, binning_pt, binning_eta)
             else:
                 d = d.Define("goodmuon","goodmuontrigger(goodgeneta,goodgenphi,Muon_pt,Muon_eta,Muon_phi,Muon_isGlobal,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi,Muon_dxybs,Muon_mediumId,isTriggeredMuon)").Define("newweight","weight*goodmuon")
 
@@ -564,7 +569,7 @@ else:
 
         else:
             if not (args.genLevelEfficiency):
-                makeAndSaveHistograms(histo_name, "Isolation", binning_mass, binning_pt, binning_eta)
+                makeAndSaveHistograms(d, histo_name, "Isolation", binning_mass, binning_pt, binning_eta)
             else:
                 d = d.Define("goodmuon","goodmuonisolation(goodgeneta,goodgenphi,Muon_pt,Muon_eta,Muon_phi,Muon_isGlobal,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi,Muon_dxybs,Muon_mediumId,isTriggeredMuon,Muon_pfRelIso04_all)").Define("newweight","weight*goodmuon")
 
@@ -598,7 +603,7 @@ else:
         d = d.Define("Probe_u_fail",        "BasicProbe_u[failCondition]")
         d = d.Define("Probe_charge_fail",   "BasicProbe_charge[failCondition]")
 
-        makeAndSaveHistograms(histo_name, "IsolationNoTrigger", binning_mass, binning_pt, binning_eta)
+        makeAndSaveHistograms(d, histo_name, "IsolationNoTrigger", binning_mass, binning_pt, binning_eta)
 
 f_out.Close()
 

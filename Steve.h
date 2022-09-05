@@ -7,6 +7,9 @@
 #include "TStyle.h"
 #include <string>
 
+#include <boost/algorithm/string/join.hpp>
+#include <boost/algorithm/string.hpp>
+
 using namespace ROOT;
 using namespace ROOT::VecOps;
 
@@ -20,6 +23,58 @@ using namespace ROOT::VecOps;
   int charge;  
   int original_index;
   };*/
+
+std::unordered_map<int, TH2D> hVertexPileupWeights = {}; // this has the scale factors as a function of vertex z and pileup to make the vertex distribution in MC agree with the one in data
+
+void initializeVertexPileupWeights(const std::string& _filename_vertexPileupWeights = "./utility/vertexPileupWeights.root") {
+
+  // weights vs vertex z and pileup
+  TFile _file_vertexPileupWeights = TFile(_filename_vertexPileupWeights.c_str(), "read");
+  if (!_file_vertexPileupWeights.IsOpen()) {
+    std::cerr << "WARNING: Failed to open prefiring file " << _filename_vertexPileupWeights << "\n";
+    exit(EXIT_FAILURE);
+  }
+  std::cout << "INFO >>> Initializing histograms for vertex-pileup weights from file " << _filename_vertexPileupWeights << std::endl;
+  std::vector<std::string> eras = {"BtoF", "GtoH"};
+  int id = 1;
+  for (auto& era : eras) {
+    std::vector<std::string> vars = {"weight_vertexZ_pileup", era};
+    std::string corrname = boost::algorithm::join(vars, "_");
+    auto* histptr = dynamic_cast<TH2D*>(_file_vertexPileupWeights.Get(corrname.c_str()));
+    if (histptr == nullptr) {
+        std::cerr << "WARNING: Failed to load correction " << corrname << " in file "
+                  << _filename_vertexPileupWeights << "! Aborting" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    histptr->SetDirectory(0);
+    hVertexPileupWeights[id] = *dynamic_cast<TH2D*>(histptr);
+    id++;
+  }
+  _file_vertexPileupWeights.Close();
+  
+}
+
+double getValFromTH2(const TH2& h, const float& x, const float& y, const double& sumError=0.0) {
+  //std::cout << "x,y --> " << x << "," << y << std::endl;
+  int xbin = std::max(1, std::min(h.GetNbinsX(), h.GetXaxis()->FindFixBin(x)));
+  int ybin  = std::max(1, std::min(h.GetNbinsY(), h.GetYaxis()->FindFixBin(y)));
+  //std::cout << "xbin,ybin --> " << xbin << "," << ybin << std::endl;
+  if (sumError)
+    return h.GetBinContent(xbin, ybin) + sumError * h.GetBinError(xbin, ybin);
+  else
+    return h.GetBinContent(xbin, ybin);
+}
+
+double _get_vertexPileupWeight(const Float_t& vertexZ, const Float_t& nTrueInt, int era = 2) {
+    // era = 1 for preVFP, 2 for postVFP
+    // FIXME: for preVFP, histogram range for pileup is up to 45, but bin between 40 and 45 is empty, because there were few events with pileup > 40
+    //        Rather than setting weights to 0 one should use the same as those from N-1 bin
+    const TH2D& h = hVertexPileupWeights[era];
+    return getValFromTH2(h, vertexZ, nTrueInt);
+    
+}
+
+////=====================================================================================
 
 
 float deltaPhi(float phi1, float phi2)
