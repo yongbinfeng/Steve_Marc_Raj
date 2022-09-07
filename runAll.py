@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
 
+# examples
+#
+# all working points with default options
+# python runAll.py -i /scratch/shared/NanoAOD/Tnp_NanoV9/TNP/ -o testAll
+#
+# only mc, and only steps 1, 4, 6
+# python runAll.py -i /scratch/shared/NanoAOD/Tnp_NanoV9/TNP/ -o testAll -r mc -s 1 4 6
+#
+# use -m to merge all output files into a single one
+# use -d to test the command, without running them automatically
+
+
 import os, re, copy, math, array
 
 import argparse
@@ -20,7 +32,15 @@ def safeSystem(cmd, dryRun=False, quitOnFail=True):
     else:
         return 0
 
+workingPoints = { 1: "reco",
+                  2: "tracking",
+                  3: "idip",
+                  4: "trigger",
+                  5: "iso",
+                  6: "isonotrig"
+}
 
+    
 if __name__ == "__main__":    
 
     parser = argparse.ArgumentParser()
@@ -38,6 +58,8 @@ if __name__ == "__main__":
                         help='Do not use weights for vertex z position')
     parser.add_argument('-nos', '--noOppositeCharge', action='store_true',
                         help='Do not require opposite sign charge for tag-probe pairs (note that tracking never uses it by default)')
+    parser.add_argument('-s','--steps', default=None, nargs='*', type=int, choices=list(workingPoints.keys()),
+                        help='Default runs all working points, but can choose only some if needed')
     args = parser.parse_args()
 
     outdir = args.outdir
@@ -54,35 +76,30 @@ if __name__ == "__main__":
     inputdir_data = "SingleMuon/"
     inputdir_mc   = "DYJetsToMuMu_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/"
         
-    workingPoints = { 1: "reco",
-                      2: "tracking",
-                      3: "idip",
-                      4: "trigger",
-                      5: "iso",
-                      6: "isonotrig"
-    }
-
     toRun = []
     if args.run in ["all", "data"]:
         toRun.append("data")
     if args.run in ["all", "mc"]:
         toRun.append("mc")
 
-    outfiles = []
+    outfiles = [] # store names of output files so to merge them if needed
 
     postfix = "vertexWeights{v}_oscharge{c}".format(v="0" if args.noVertexPileupWeight  else "1",
                                                     c="0" if args.noOppositeCharge      else "1")
-    
+
     for xrun in toRun:
+
         isdata = 0 if xrun == "mc" else 1
         inpath = indir + (inputdir_data if isdata else inputdir_mc)
         for wp in workingPoints.keys():
+            if args.steps and wp not in args.steps:
+                continue
             charges = [-1, 1] if workingPoints[wp] == "trigger" else [0]
             for ch in charges:
                 step = workingPoints[wp]
                 if ch:
                     step += "plus" if ch == 1 else "minus"
-                outfile = f"{outdir}tnp_{step}_{postfix}.root"
+                outfile = f"{outdir}tnp_{step}_{xrun}_{postfix}.root"
                 outfiles.append(outfile)
                 cmd = f"python Steve.py -i {inpath} -o {outfile} -d {isdata} -e {wp} -c {ch}"
                 if not args.noVertexPileupWeight:
@@ -94,10 +111,11 @@ if __name__ == "__main__":
                 safeSystem(cmd, dryRun=args.dryRun)
                 print("")
 
+                
     if args.merge:
         mergedFile = f"{outdir}tnp_all_{postfix}.root"
         sourcefiles = " ".join(outfiles)
-        haddcmd = f"hadd {mergedFile} {sourcefiles}"
+        haddcmd = f"hadd -f {mergedFile} {sourcefiles}"
         print("")
         print(f"Merging root files with hadd")
         safeSystem(haddcmd, dryRun=args.dryRun)

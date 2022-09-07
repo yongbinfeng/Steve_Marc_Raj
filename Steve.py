@@ -15,23 +15,38 @@ import time
 import argparse
 
 
-def makeAndSaveHistograms(d, histo_name, histo_title, binning_mass, binning_pt, binning_eta):
+def makeAndSaveOneHist(d, histo_name, histo_title, binning_mass, binning_pt, binning_eta, massVar="TPmass", isPass=True):
 
-    model_pass = ROOT.RDF.TH3DModel(f"pass_mu_{histo_name}", f"{histo_title}_pass",
-                                    len(binning_mass)-1, binning_mass,
-                                    len(binning_pt)-1, binning_pt,
-                                    len(binning_eta)-1, binning_eta)
-    model_fail = ROOT.RDF.TH3DModel(f"fail_mu_{histo_name}", f"{histo_title}_fail",
-                                    len(binning_mass)-1, binning_mass,
-                                    len(binning_pt)-1, binning_pt,
-                                    len(binning_eta)-1, binning_eta)
+    passStr = "pass" if isPass else "fail"
+    model = ROOT.RDF.TH3DModel(f"{passStr}_mu_{histo_name}", f"{histo_title} {passStr}",
+                               len(binning_mass)-1, binning_mass,
+                               len(binning_pt)-1, binning_pt,
+                               len(binning_eta)-1, binning_eta)
     
-    pass_histogram = d.Histo3D(model_pass, "TPmass_pass", "Probe_pt_pass", "Probe_eta_pass", "weight")
-    fail_histogram = d.Histo3D(model_fail, "TPmass_fail", "Probe_pt_fail", "Probe_eta_fail", "weight")
+    histogram = d.Histo3D(model, f"{massVar}_{passStr}", f"Probe_pt_{passStr}", f"Probe_eta_{passStr}", "weight")
+    histogram.Write()
     
-    pass_histogram.Write()
-    fail_histogram.Write()
+    
+def makeAndSaveHistograms(d, histo_name, histo_title, binning_mass, binning_pt, binning_eta, massVar="TPmass"):
 
+    # model_pass = ROOT.RDF.TH3DModel(f"pass_mu_{histo_name}", f"{histo_title} pass",
+    #                                 len(binning_mass)-1, binning_mass,
+    #                                 len(binning_pt)-1, binning_pt,
+    #                                 len(binning_eta)-1, binning_eta)
+    # model_fail = ROOT.RDF.TH3DModel(f"fail_mu_{histo_name}", f"{histo_title} fail",
+    #                                 len(binning_mass)-1, binning_mass,
+    #                                 len(binning_pt)-1, binning_pt,
+    #                                 len(binning_eta)-1, binning_eta)
+    
+    # pass_histogram = d.Histo3D(model_pass, f"{massVar}_pass", "Probe_pt_pass", "Probe_eta_pass", "weight")
+    # fail_histogram = d.Histo3D(model_fail, f"{massVar}_fail", "Probe_pt_fail", "Probe_eta_fail", "weight")
+    
+    # pass_histogram.Write()
+    # fail_histogram.Write()
+
+    makeAndSaveOneHist(d, histo_name, histo_title, binning_mass, binning_pt, binning_eta, massVar, isPass=True)
+    makeAndSaveOneHist(d, histo_name, histo_title, binning_mass, binning_pt, binning_eta, massVar, isPass=False)
+    
 
 
 def make_jsonhelper(filename):
@@ -339,6 +354,14 @@ elif (args.efficiency == 2):
         d = d.Define("Probe_eta_fail", "Probe_eta[!passCondition_tracking]")
 
         makeAndSaveHistograms(d, histo_name, "Tracking", binning_mass, binning_pt, binning_eta)
+
+        # save also the mass for passing probes computed with standalone variables
+        # needed when making MC template for failing probes using all probes, since the mass should be consistently measured for both cases
+        # do it also for data in case we want to check the difference in the efficiencies
+        d = d.Define("TPmassFromSA_pass", "TPmass[passCondition_tracking]")
+        makeAndSaveOneHist(d, f"{histo_name}_alt", "Tracking (mass from SA muons)",
+                           binning_mass, binning_pt, binning_eta,
+                           massVar="TPmassFromSA", isPass=True)
         
     else:
         d = d.Define("goodmuon","goodmuonglobal(goodgeneta,goodgenphi,Muon_pt,Muon_eta,Muon_phi,Muon_isGlobal,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi)").Define("newweight","weight*goodmuon")
