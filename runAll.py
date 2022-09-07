@@ -102,8 +102,8 @@ if __name__ == "__main__":
                 outfile = f"{outdir}tnp_{step}_{xrun}_{postfix}.root"
                 outfiles.append(outfile)
                 cmd = f"python Steve.py -i {inpath} -o {outfile} -d {isdata} -e {wp} -c {ch}"
-                if not args.noVertexPileupWeight:
-                    cmd += " -vpw"
+                if args.noVertexPileupWeight:
+                    cmd += " -nw"
                 if args.noOppositeCharge:
                     cmd += " -nos"
                 print("")

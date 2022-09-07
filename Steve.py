@@ -87,7 +87,8 @@ parser.add_argument("-tpt","--tagPt", help="Minimum pt to select tag muons",
 parser.add_argument("-c","--charge", help="Make efficiencies for a specific charge of the probe (-1/1 for positive negative, 0 for inclusive)",
                     type=int, default=0, choices=[-1, 0, 1])
 
-parser.add_argument("-vpw", "--vertexPileupWeight", action="store_true", help="Use weights for vertex z position versus pileup (only for MC)")
+parser.add_argument('-nw', '--noVertexPileupWeight', action='store_true', help='Do not use weights for vertex z position')
+#parser.add_argument("-vpw", "--vertexPileupWeight", action="store_true", help="Use weights for vertex z position versus pileup (only for MC)")
 
 parser.add_argument("-nos", "--noOppositeCharge", action="store_true", help="Don't require opposite charges between tag and probe (note that tracking still never uses it with standalone muons)")
 
@@ -183,7 +184,7 @@ if (args.isData == 1):
 if(args.isData == 1):
     d = d.Define("weight","1")
 else:
-    if args.vertexPileupWeight:
+    if not args.noVertexPileupWeight:
         if hasattr(ROOT, "initializeVertexPileupWeights"):
             print("Initializing histograms with vertex-pileup weights")
             ROOT.initializeVertexPileupWeights("./utility/vertexPileupWeights.root")
