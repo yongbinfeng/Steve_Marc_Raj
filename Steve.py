@@ -17,8 +17,14 @@ import argparse
 
 def makeAndSaveHistograms(d, histo_name, histo_title, binning_mass, binning_pt, binning_eta):
 
-    model_pass = ROOT.RDF.TH3DModel(f"pass_mu_{histo_name}", f"{histo_title}_pass", len(binning_mass)-1, binning_mass, len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta)
-    model_fail = ROOT.RDF.TH3DModel(f"fail_mu_{histo_name}", f"{histo_title}_fail", len(binning_mass)-1, binning_mass, len(binning_pt)-1, binning_pt, len(binning_eta)-1, binning_eta)
+    model_pass = ROOT.RDF.TH3DModel(f"pass_mu_{histo_name}", f"{histo_title}_pass",
+                                    len(binning_mass)-1, binning_mass,
+                                    len(binning_pt)-1, binning_pt,
+                                    len(binning_eta)-1, binning_eta)
+    model_fail = ROOT.RDF.TH3DModel(f"fail_mu_{histo_name}", f"{histo_title}_fail",
+                                    len(binning_mass)-1, binning_mass,
+                                    len(binning_pt)-1, binning_pt,
+                                    len(binning_eta)-1, binning_eta)
     
     pass_histogram = d.Histo3D(model_pass, "TPmass_pass", "Probe_pt_pass", "Probe_eta_pass", "weight")
     fail_histogram = d.Histo3D(model_fail, "TPmass_fail", "Probe_pt_fail", "Probe_eta_fail", "weight")
@@ -59,6 +65,9 @@ parser.add_argument("-o","--output_file", help="name of the output root file",
 
 parser.add_argument("-d","--isData", help="Pass 0 for MC, 1 for Data, default is 0",
                     type=int, default=0)
+
+parser.add_argument("-tpt","--tagPt", help="Minimum pt to select tag muons",
+                    type=float, default=25.)
 
 parser.add_argument("-c","--charge", help="Make efficiencies for a specific charge of the probe (-1/1 for positive negative, 0 for inclusive)",
                     type=int, default=0, choices=[-1, 0, 1])
@@ -184,7 +193,7 @@ else:
     d = d.Define("isGenMatchedMuon", "hasGenMatch(GenMuonBare_eta, GenMuonBare_phi, Muon_eta, Muon_phi)")
 
 ## Define tags as trigger matched and gen matched (gen match can be removed with an option in case)
-d = d.Define("Tag_Muons", "Muon_pt > 25 && abs(Muon_eta) < 2.4 && Muon_pfRelIso04_all < 0.15 && abs(Muon_dxybs) < 0.05 && Muon_mediumId && Muon_isGlobal && isTriggeredMuon && isGenMatchedMuon")
+d = d.Define("Tag_Muons", f"Muon_pt > {args.tagPt} && abs(Muon_eta) < 2.4 && Muon_pfRelIso04_all < 0.15 && abs(Muon_dxybs) < 0.05 && Muon_mediumId && Muon_isGlobal && isTriggeredMuon && isGenMatchedMuon")
 # just for utility
 d = d.Alias("Tag_pt",  "Muon_pt")
 d = d.Alias("Tag_eta", "Muon_eta")
@@ -350,12 +359,13 @@ else:
 
     chargeCut = ""
     if args.charge:
-        chargeCut = " && Muon_charge {sign} 0".format(sign=">" if args.charge > 0 else "<")
+        sign= ">" if args.charge > 0 else "<"
+        chargeCut = f" && Muon_charge {sign} 0"
         
     # FIXME: 1) keep DR between inner and outer track? We could, as lon as the analysis has it too (see also next question)
     #        2) Do we need to cut on Muon_standalonePt? We might do it for consistency with the previous steps (but then also in the analysis)
     #        3) For Muon_pt we might just use the histogram acceptance
-    d = d.Define("BasicProbe_Muons","Muon_isGlobal && Muon_pt > 15 && Muon_standalonePt > 15 && abs(Muon_eta) < 2.4 && selfDeltaR(Muon_eta, Muon_phi, Muon_standaloneEta, Muon_standalonePhi) < 0.3 && isGenMatchedMuon {chargeCut}")
+    d = d.Define("BasicProbe_Muons", f"Muon_isGlobal && Muon_pt > 15 && Muon_standalonePt > 15 && abs(Muon_eta) < 2.4 && selfDeltaR(Muon_eta, Muon_phi, Muon_standaloneEta, Muon_standalonePhi) < 0.3 && isGenMatchedMuon{chargeCut}")
 
     d = d.Define("All_TPPairs", f"CreateTPPairTEST(Tag_Muons, BasicProbe_Muons, {doOS}, Tag_charge, Muon_charge)")
     d = d.Define("All_TPmass","getTPmassTEST(All_TPPairs, Tag_pt, Tag_eta, Tag_phi, Muon_pt, Muon_eta, Muon_phi)")
