@@ -272,8 +272,8 @@ RVec<Float_t> trackMuonDR(RVec<Float_t> &Track_eta, RVec<Float_t> &Track_phi,
 }
 
 
-RVec<Float_t> trackStandaloneDR(RVec<Float_t> &Track_eta, RVec<Float_t> &Track_phi,
-                                RVec<Float_t> &Muon_standaloneEta, RVec<Float_t> &Muon_standalonePhi)
+RVec<Float_t> trackStandaloneDR(const RVec<Float_t> &Track_eta, const RVec<Float_t> &Track_phi,
+                                const RVec<Float_t> &Muon_standaloneEta, const RVec<Float_t> &Muon_standalonePhi)
 {
    RVec<Float_t> trackStandaloneDR;
    for(int iTrack=0;iTrack<Track_eta.size();iTrack++){

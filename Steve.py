@@ -6,10 +6,8 @@ ROOT.gInterpreter.ProcessLine(".O3")
 ROOT.ROOT.EnableImplicitMT()
 ROOT.gInterpreter.Declare('#include "Steve.h"')
 ROOT.gInterpreter.Declare('#include "GenFunctions.h"')
-from os import listdir
-from os.path import isfile,join
-from os import walk
-
+import os
+#from os import listdir
 import time
 
 import argparse
@@ -70,8 +68,8 @@ def make_jsonhelper(filename):
 parser = argparse.ArgumentParser()
 
 parser.add_argument("-e","--efficiency",
-		    help="1 for reco, 2 for \"tracking\", 3 for idip, 4 for trigger, 5 for isolation, 6 for isolation without trigger",
-                    type=int)
+		    help="1 for reco, 2 for \"tracking\", 3 for idip, 4 for trigger, 5 for isolation, 6 for isolation without trigger, 7 for veto",
+                    type=int, choices=range(1,8))
 parser.add_argument("-i","--input_path", help="path of the input root files",
                     type=str)
 
@@ -111,6 +109,14 @@ if args.isData & args.tnpGenLevel:
 if '.root' not in args.output_file:
     raise NameError('output_file name must end with \'.root\'')
 
+# create output folders if not existing
+outdir = os.path.dirname(os.path.abspath(args.output_file))
+if not os.path.exists(outdir):
+    print()
+    print(f"Creating folder {outdir} to store outputs")
+    os.makedirs(outdir)    
+    print()
+
 if args.isData == 1:
     histo_name= "RunGtoH"
 else:
@@ -121,15 +127,20 @@ files=[]
 #dirnames=["/scratchnvme/rbhattac/TNP_NanoAOD/DY_postVFP_NanoV8MC_TagAndProbe/220405_123536/0000","/scratchnvme/rbhattac/TNP_NanoAOD/DY_postVFP_NanoV8MC_TagAndProbe/220405_123536/0001","/scratchnvme/rbhattac/TNP_NanoAOD/DY_postVFP_NanoV8MC_TagAndProbe/220405_123536/0002","/scratchnvme/rbhattac/TNP_NanoAOD/DY_postVFP_NanoV8MC_TagAndProbe/220405_123536/0003"]
 
 #for dirname in dirnames:
-#    for f in listdir(dirname):
+#    for f in os.listdir(dirname):
 #        if f.endswith(".root"):
-#            files.append(join(dirname, f))
+#            files.append(os.path.join(dirname, f))
 
-for root, dirnames, filenames in walk(args.input_path):
+for root, dirnames, filenames in os.walk(args.input_path):
      for filename in filenames:
           if '.root' in filename:
-              files.append(join(root, filename))
+              files.append(os.path.join(root, filename))
 
+
+if args.charge and args.efficiency in [1, 2]:
+    print("")
+    print("   WARNING: charge splitting not implemented for reco/tracking efficiency. I will derive charge inclusive efficiencies")
+    print("")
 
 
 #print(files)
@@ -244,10 +255,11 @@ if(args.efficiency == 1):
 
         # define all probes
         # d = d.Define("Probe_Tracks","CreateProbes_Track(Track_pt,Track_eta,Track_phi,Track_charge,Track_trackOriginalAlgo)")
-        d = d.Define("Probe_Tracks", "Track_pt > 15 && abs(Track_eta) < 2.4 && Track_trackOriginalAlgo != 13 && Track_trackOriginalAlgo != 14 && isGenMatchedTrack")
+        d = d.Define("Probe_Tracks", "Track_pt > 24 && abs(Track_eta) < 2.4 && Track_trackOriginalAlgo != 13 && Track_trackOriginalAlgo != 14 && isGenMatchedTrack")
         # condition for passing probes
         # FIXME: add other criteria to the MergedStandAloneMuon to accept the matching? E.g. |eta| < 2.4 or pt > XX?
-        d = d.Define("passCondition_reco", "trackStandaloneDR(Track_eta,Track_phi, MergedStandAloneMuon_eta, MergedStandAloneMuon_phi) < 0.3")
+        d = d.Define("goodStandaloneMuon", "MergedStandAloneMuon_pt > 15")
+        d = d.Define("passCondition_reco", "trackStandaloneDR(Track_eta, Track_phi, MergedStandAloneMuon_eta[goodStandaloneMuon], MergedStandAloneMuon_phi[goodStandaloneMuon]) < 0.3")
         
         d = d.Define("All_TPPairs", f"CreateTPPairTEST(Tag_Muons, Probe_Tracks, {doOS}, Tag_charge, Track_charge)")
         d = d.Define("All_TPmass", "getTPmassTEST(All_TPPairs, Tag_pt, Tag_eta, Tag_phi, Track_pt, Track_eta, Track_phi)")
@@ -331,11 +343,12 @@ elif (args.efficiency == 2):
         ##           A. We don't cut, it is just resolution effect
         ##        3) Q. What Muon_pt cut to use? 5, 10, 15? Difference between 10 and 15 is very small, at most few 0.1% in last eta bins, it is mainly a resolution effect
         ##              It mainly depends on whether the histogram range starts from 24 or less, since this Muon_pt cut will contribute less if Muon_standalonePt > 24
-        d = d.Define("Muon_forTracking", "Muon_isGlobal && Muon_pt > 15 && Muon_standalonePt > 15 && selfDeltaR(Muon_eta, Muon_phi, Muon_standaloneEta, Muon_standalonePhi) < 0.3")
+        d = d.Define("Muon_forTracking", "Muon_isGlobal && Muon_pt > 10 && Muon_standalonePt > 15 && selfDeltaR(Muon_eta, Muon_phi, Muon_standaloneEta, Muon_standalonePhi) < 0.3")
         # check Muon exists with proper criteria and matching extraIdx with the standalone muon 
         d = d.Define("passCondition_tracking", "Probe_isGlobalTEST(TPPairs, MergedStandAloneMuon_extraIdx, Muon_standaloneExtraIdx, Muon_forTracking)")
 
-        binning_pt = array('d',[24., 65.])
+        # use the minimum pt of the standalone muon used above to define the range, also a larger upper edge because the pt resolution of standalone muons is bad
+        binning_pt = array('d',[15., 80.]) # try also 24,65
 
         # Here we are using the muon variables to calulate the mass for the passing probes for tracking efficiency
         ## However the TPPairs were made using indices from MergedStandAloneMuon_XX collections, which are not necessarily valid for Muon_XX
@@ -376,8 +389,8 @@ elif (args.efficiency == 2):
         pass_histogram_reco.Write()
         pass_histogram_norm.Write()
 
-## Muons for all other efficiency
-else:
+## Muons for all other efficiency step except veto
+elif args.efficiency != 7:
     if(args.isData != 1):
         d = d.Define("GenMatchedIdx","GenMatchedIdx(GenMuonBare_eta, GenMuonBare_phi, Muon_eta, Muon_phi)")
 
@@ -386,10 +399,9 @@ else:
         sign= ">" if args.charge > 0 else "<"
         chargeCut = f" && Muon_charge {sign} 0"
         
-    # FIXME: 1) keep DR between inner and outer track? We could, as lon as the analysis has it too (see also next question)
+    # FIXME: 1) keep DR between inner and outer track? We could, as long as the analysis has it too (see also next question)
     #        2) Do we need to cut on Muon_standalonePt? We might do it for consistency with the previous steps (but then also in the analysis)
-    #        3) For Muon_pt we might just use the histogram acceptance
-    d = d.Define("BasicProbe_Muons", f"Muon_isGlobal && Muon_pt > 15 && Muon_standalonePt > 15 && abs(Muon_eta) < 2.4 && selfDeltaR(Muon_eta, Muon_phi, Muon_standaloneEta, Muon_standalonePhi) < 0.3 && isGenMatchedMuon{chargeCut}")
+    d = d.Define("BasicProbe_Muons", f"Muon_isGlobal && Muon_pt > 24 && Muon_standalonePt > 15 && abs(Muon_eta) < 2.4 && selfDeltaR(Muon_eta, Muon_phi, Muon_standaloneEta, Muon_standalonePhi) < 0.3 && isGenMatchedMuon {chargeCut}")
 
     d = d.Define("All_TPPairs", f"CreateTPPairTEST(Tag_Muons, BasicProbe_Muons, {doOS}, Tag_charge, Muon_charge)")
     d = d.Define("All_TPmass","getTPmassTEST(All_TPPairs, Tag_pt, Tag_eta, Tag_phi, Muon_pt, Muon_eta, Muon_phi)")
@@ -639,6 +651,58 @@ else:
 
         makeAndSaveHistograms(d, histo_name, "IsolationNoTrigger", binning_mass, binning_pt, binning_eta)
 
+else:
+    # for the veto selection
+    
+    if(args.isData != 1):
+        d = d.Define("GenMatchedIdx","GenMatchedIdx(GenMuonBare_eta, GenMuonBare_phi, Muon_eta, Muon_phi)")
+    chargeCut = ""
+    if args.charge:
+        sign= ">" if args.charge > 0 else "<"
+        chargeCut = f" && Muon_charge {sign} 0"
+
+    ## FIXME: add something else? Note that looseId already includes (Muon_isGlobal || Muon_isTracker)
+    d = d.Define("BasicProbe_Muons", f"Muon_pt > 10 && abs(Muon_eta) < 2.4 && (Muon_isGlobal || Muon_isTracker) && isGenMatchedMuon {chargeCut}")
+
+    d = d.Define("All_TPPairs", f"CreateTPPairTEST(Tag_Muons, BasicProbe_Muons, {doOS}, Tag_charge, Muon_charge)")
+    d = d.Define("All_TPmass","getTPmassTEST(All_TPPairs, Tag_pt, Tag_eta, Tag_phi, Muon_pt, Muon_eta, Muon_phi)")
+    massLow  =  50
+    massHigh = 130
+    binning_mass = array('d',[massLow + i for i in range(int(1+massHigh-massLow))])
+    massCut = f"All_TPmass > {massLow} && All_TPmass < {massHigh}"
+
+    # overriding previous pt binning
+    ## FIXME: to optimize
+    binning_pt = array('d',[(10. + 5.*i) for i in range(12)]) # from MC truth the efficiency of the veto is flat versus pt from 20 to 65 GeV
+
+    d = d.Define("TPPairs", f"All_TPPairs[{massCut}]")
+    # call it BasicTPmass so it can be filtered later without using Redefine, but an appropriate Define
+    d = d.Define("BasicTPmass",  f"All_TPmass[{massCut}]")
+
+    # define all basic probes here (these are all Muon), to be filtered further later, without having to use Redefine when filtering
+    d = d.Define("BasicProbe_charge", "getVariables(TPPairs, Muon_charge, 2)")
+    d = d.Define("BasicProbe_pt",     "getVariables(TPPairs, Muon_pt,     2)")
+    d = d.Define("BasicProbe_eta",    "getVariables(TPPairs, Muon_eta,    2)")
+
+    ## IMPORTANT: define only the specific condition to be passed, not with the && of previous steps (although in principle it is the same as long as that one is already applied)
+    ##            also, these are based on the initial Muon collection, with no precooked filtering
+    d = d.Define("passCondition_veto", "Muon_looseId && abs(Muon_dxybs) < 0.05")
+
+    # define condition for passing probes
+    d = d.Define("passCondition", "getVariables(TPPairs, passCondition_veto, 2)")
+    d = d.Define("failCondition", "!passCondition")            
+    # pass probes
+    d = d.Define("Probe_pt_pass",  "BasicProbe_pt[passCondition]")
+    d = d.Define("Probe_eta_pass", "BasicProbe_eta[passCondition]")
+    d = d.Define("TPmass_pass",    "BasicTPmass[passCondition]")
+    # fail probes
+    d = d.Define("Probe_pt_fail",  "BasicProbe_pt[failCondition]")
+    d = d.Define("Probe_eta_fail", "BasicProbe_eta[failCondition]")
+    d = d.Define("TPmass_fail",    "BasicTPmass[failCondition]")
+    makeAndSaveHistograms(d, histo_name, "veto", binning_mass, binning_pt, binning_eta)
+    
+
+        
 f_out.Close()
 
 print(d.Report().Print())
