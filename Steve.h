@@ -172,42 +172,11 @@ RVec<Int_t> CreateProbes_MergedStandMuons(RVec<Float_t> &MergedStandAloneMuon_pt
 
 }
 
-RVec<std::pair<int,int>> CreateTPPair(RVec<Int_t> &Muon_charge, RVec<Int_t> &isTag, 
-                                      RVec<Bool_t> &isTriggeredMuon, 
-                                      RVec<Bool_t> &isGenMatchedMuon, 
-                                      RVec<Int_t> &Probe_Candidates, 
-                                      RVec<Bool_t> &isGenMatchedProbe )
-{
-  RVec<std::pair<int,int>> TP_pairs;
-  for(int iLep1=0; iLep1<Muon_charge.size();iLep1++){
-    //if(!isInAcceptance[iLep1]) continue;
-    if(!isTag[iLep1]) continue;
-    if(!isTriggeredMuon[iLep1]) continue;
-    if(!isGenMatchedMuon[iLep1]) continue;
-
-    for(int iLep2=0; iLep2<Probe_Candidates.size(); iLep2++){
-      int probe_candidate = Probe_Candidates.at(iLep2);
-      //if (iLep2==iLep1) continue;
-      //if(!isProbe[iLep2]) continue;
-      //if(!isTriggeredMuon[iLep2]) continue;
-      if(!isGenMatchedProbe[probe_candidate]) continue;
-      //#if(Muon_charge[iLep1] == Muon_charge[iLep2]) continue;
-
-      std::pair<int,int> TP_pair = std::make_pair(iLep1,probe_candidate); 
-      TP_pairs.push_back(TP_pair);
-    }
-
-  }
-  return TP_pairs;
-}
-
-
-RVec<std::pair<int,int>> CreateTPPairTEST(const RVec<Int_t> &Tag_muons, 
-                                          const RVec<Int_t> &Probe_Candidates,
-                                          const int doOppositeCharge,
-                                          const RVec<Int_t> &Tag_Charge, 
-                                          const RVec<Int_t> &Probe_charge
-                                          )
+RVec<std::pair<int,int>> CreateTPPair(const RVec<Int_t> &Tag_muons, 
+                                      const RVec<Int_t> &Probe_Candidates,
+                                      const int doOppositeCharge,
+                                      const RVec<Int_t> &Tag_Charge, 
+                                      const RVec<Int_t> &Probe_charge)
 {
 
     // tag and probe collections might contain "same" physical objects, but here no DR cut is considered.
@@ -404,28 +373,9 @@ RVec<Int_t> GenMatchedIdx(RVec<Float_t> &GenPart_eta,RVec<Float_t> &GenPart_phi,
     return isGenMatched;
 }
 
-
-RVec<Float_t> getTPmass(RVec<std::pair<int,int>> TPPairs, RVec<Float_t> &Muon_pt,
-                        RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi, 
+RVec<Float_t> getTPmass(RVec<std::pair<int,int>> TPPairs,
+                        RVec<Float_t> &Muon_pt, RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi, 
                         RVec<Float_t> &Cand_pt, RVec<Float_t> &Cand_eta, RVec<Float_t> &Cand_phi)
-{
-  RVec<Float_t> TPMass;
-  for (int i=0;i<TPPairs.size();i++){
-    std::pair<int,int> TPPair = TPPairs.at(i);
-    int tag_index = TPPair.first;
-    int probe_index = TPPair.second;
-    TLorentzVector tagLep(0,0,0,0);
-    tagLep.SetPtEtaPhiM(Muon_pt[tag_index],Muon_eta[tag_index],Muon_phi[tag_index],0.106);
-    TLorentzVector probeLep(0,0,0,0);
-    probeLep.SetPtEtaPhiM(Cand_pt[probe_index],Cand_eta[probe_index],Cand_phi[probe_index],0.106);
-    TPMass.push_back((tagLep+probeLep).M());        
-  }
-  return TPMass;
-}
-
-RVec<Float_t> getTPmassTEST(RVec<std::pair<int,int>> TPPairs,
-                            RVec<Float_t> &Muon_pt, RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi, 
-                            RVec<Float_t> &Cand_pt, RVec<Float_t> &Cand_eta, RVec<Float_t> &Cand_phi)
 {
     // muon mass is used below
     RVec<Float_t> TPMass;
@@ -514,36 +464,11 @@ RVec<Bool_t> isOS(RVec<std::pair<int,int>> TPPairs, RVec<Int_t> Muon_charge,
   return isOS;
 }
 
-RVec<Bool_t> Probe_isGlobal(RVec<std::pair<int,int>> &TPPairs, 
-			    RVec<Int_t> &MergedStandAloneMuon_extraIdx, 
-			    RVec<Int_t> &Muon_standaloneExtraIdx, 
-			    RVec<Bool_t> &Muon_isGlobal, RVec<Float_t> &Muon_pt, 
-			    RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi, 
-			    RVec<Float_t> &Muon_standalonePt, RVec<Float_t> &Muon_standaloneEta, 
-			    RVec<Float_t> &Muon_standalonePhi)
-{
-  RVec<Bool_t> isGlobal;
-  for (auto i=0U; i<TPPairs.size(); i++) {
-    std::pair<int,int> TPPair = TPPairs.at(i);
-    int  tag_index = TPPair.first;
-    int probe_index = TPPair.second;
-    bool condition=false;
-    // FIXME: do we want/need the DR here? It does almost nothing, though
-    for (auto j=0U; j<Muon_standaloneExtraIdx.size(); j++) {
-      if ( (MergedStandAloneMuon_extraIdx[probe_index] == Muon_standaloneExtraIdx[j]) && 
-           (Muon_isGlobal[j]) && (Muon_pt[j] > 15.) && (Muon_standalonePt[j] > 15.) && 
-           (deltaR(Muon_eta[j], Muon_phi[j], Muon_standaloneEta[j], Muon_standalonePhi[j]) < 0.3 ))
-        condition=true;
-    }
-    isGlobal.push_back(condition);
-  }
-  return isGlobal;
-}
 
-RVec<Int_t> Probe_isGlobalTEST(const RVec<std::pair<int,int>> &TPPairs, 
-                               const RVec<Int_t> &MergedStandAloneMuon_extraIdx, 
-                               const RVec<Int_t> &Muon_standaloneExtraIdx, 
-                               const RVec<Int_t> &Muon_passProbeCondition)
+RVec<Int_t> Probe_isGlobal(const RVec<std::pair<int,int>> &TPPairs, 
+                           const RVec<Int_t> &MergedStandAloneMuon_extraIdx, 
+                           const RVec<Int_t> &Muon_standaloneExtraIdx, 
+                           const RVec<Int_t> &Muon_passProbeCondition)
 {
     RVec<Int_t> isGlobal(TPPairs.size(), 0);
     for (auto i=0U; i<TPPairs.size(); i++) {

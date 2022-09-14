@@ -261,8 +261,8 @@ if(args.efficiency == 1):
         d = d.Define("goodStandaloneMuon", "MergedStandAloneMuon_pt > 15")
         d = d.Define("passCondition_reco", "trackStandaloneDR(Track_eta, Track_phi, MergedStandAloneMuon_eta[goodStandaloneMuon], MergedStandAloneMuon_phi[goodStandaloneMuon]) < 0.3")
         
-        d = d.Define("All_TPPairs", f"CreateTPPairTEST(Tag_Muons, Probe_Tracks, {doOS}, Tag_charge, Track_charge)")
-        d = d.Define("All_TPmass", "getTPmassTEST(All_TPPairs, Tag_pt, Tag_eta, Tag_phi, Track_pt, Track_eta, Track_phi)")
+        d = d.Define("All_TPPairs", f"CreateTPPair(Tag_Muons, Probe_Tracks, {doOS}, Tag_charge, Track_charge)")
+        d = d.Define("All_TPmass", "getTPmass(All_TPPairs, Tag_pt, Tag_eta, Tag_phi, Track_pt, Track_eta, Track_phi)")
 
         # overriding previous pt binning
         binning_pt = array('d',[24., 65.])
@@ -318,8 +318,8 @@ elif (args.efficiency == 2):
         d = d.Define("Probe_MergedStandMuons","MergedStandAloneMuon_pt > 15 && abs(MergedStandAloneMuon_eta) < 2.4 && isGenMatchedMergedStandMuon")
 
         # Note: no opposite charge here with standalone muons
-        d = d.Define("All_TPPairs","CreateTPPairTEST(Tag_Muons, Probe_MergedStandMuons, 0, Tag_charge, MergedStandAloneMuon_charge)")
-        d = d.Define("All_TPmass","getTPmassTEST(All_TPPairs, Tag_pt, Tag_eta, Tag_phi, MergedStandAloneMuon_pt, MergedStandAloneMuon_eta, MergedStandAloneMuon_phi)")
+        d = d.Define("All_TPPairs","CreateTPPair(Tag_Muons, Probe_MergedStandMuons, 0, Tag_charge, MergedStandAloneMuon_charge)")
+        d = d.Define("All_TPmass","getTPmass(All_TPPairs, Tag_pt, Tag_eta, Tag_phi, MergedStandAloneMuon_pt, MergedStandAloneMuon_eta, MergedStandAloneMuon_phi)")
 
         massLow  =  40
         massHigh = 140
@@ -345,7 +345,7 @@ elif (args.efficiency == 2):
         ##              It mainly depends on whether the histogram range starts from 24 or less, since this Muon_pt cut will contribute less if Muon_standalonePt > 24
         d = d.Define("Muon_forTracking", "Muon_isGlobal && Muon_pt > 10 && Muon_standalonePt > 15 && selfDeltaR(Muon_eta, Muon_phi, Muon_standaloneEta, Muon_standalonePhi) < 0.3")
         # check Muon exists with proper criteria and matching extraIdx with the standalone muon 
-        d = d.Define("passCondition_tracking", "Probe_isGlobalTEST(TPPairs, MergedStandAloneMuon_extraIdx, Muon_standaloneExtraIdx, Muon_forTracking)")
+        d = d.Define("passCondition_tracking", "Probe_isGlobal(TPPairs, MergedStandAloneMuon_extraIdx, Muon_standaloneExtraIdx, Muon_forTracking)")
 
         # use the minimum pt of the standalone muon used above to define the range, also a larger upper edge because the pt resolution of standalone muons is bad
         binning_pt = array('d',[15., 80.]) # try also 24,65
@@ -359,7 +359,7 @@ elif (args.efficiency == 2):
         d = d.Define("MergedStandaloneMuon_MuonEta", "getMergedStandAloneMuon_MuonVar(MergedStandaloneMuon_MuonIdx, Muon_eta)")
         d = d.Define("MergedStandaloneMuon_MuonPhi", "getMergedStandAloneMuon_MuonVar(MergedStandaloneMuon_MuonIdx, Muon_phi)")
 
-        d = d.Define("TPmass_pass",    "getTPmassTEST(TPPairs_pass, Tag_pt, Tag_eta, Tag_phi, MergedStandaloneMuon_MuonPt, MergedStandaloneMuon_MuonEta, MergedStandaloneMuon_MuonPhi)")
+        d = d.Define("TPmass_pass",    "getTPmass(TPPairs_pass, Tag_pt, Tag_eta, Tag_phi, MergedStandaloneMuon_MuonPt, MergedStandaloneMuon_MuonEta, MergedStandaloneMuon_MuonPhi)")
         d = d.Define("Probe_pt_pass",  "Probe_pt[passCondition_tracking]")
         d = d.Define("Probe_eta_pass", "Probe_eta[passCondition_tracking]")
 
@@ -403,8 +403,8 @@ elif args.efficiency != 7:
     #        2) Do we need to cut on Muon_standalonePt? We might do it for consistency with the previous steps (but then also in the analysis)
     d = d.Define("BasicProbe_Muons", f"Muon_isGlobal && Muon_pt > 24 && Muon_standalonePt > 15 && abs(Muon_eta) < 2.4 && selfDeltaR(Muon_eta, Muon_phi, Muon_standaloneEta, Muon_standalonePhi) < 0.3 && isGenMatchedMuon {chargeCut}")
 
-    d = d.Define("All_TPPairs", f"CreateTPPairTEST(Tag_Muons, BasicProbe_Muons, {doOS}, Tag_charge, Muon_charge)")
-    d = d.Define("All_TPmass","getTPmassTEST(All_TPPairs, Tag_pt, Tag_eta, Tag_phi, Muon_pt, Muon_eta, Muon_phi)")
+    d = d.Define("All_TPPairs", f"CreateTPPair(Tag_Muons, BasicProbe_Muons, {doOS}, Tag_charge, Muon_charge)")
+    d = d.Define("All_TPmass","getTPmass(All_TPPairs, Tag_pt, Tag_eta, Tag_phi, Muon_pt, Muon_eta, Muon_phi)")
     massLow  =  50
     massHigh = 130
     binning_mass = array('d',[massLow + i for i in range(int(1+massHigh-massLow))])
@@ -664,8 +664,8 @@ else:
     ## FIXME: add something else? Note that looseId already includes (Muon_isGlobal || Muon_isTracker)
     d = d.Define("BasicProbe_Muons", f"Muon_pt > 10 && abs(Muon_eta) < 2.4 && (Muon_isGlobal || Muon_isTracker) && isGenMatchedMuon {chargeCut}")
 
-    d = d.Define("All_TPPairs", f"CreateTPPairTEST(Tag_Muons, BasicProbe_Muons, {doOS}, Tag_charge, Muon_charge)")
-    d = d.Define("All_TPmass","getTPmassTEST(All_TPPairs, Tag_pt, Tag_eta, Tag_phi, Muon_pt, Muon_eta, Muon_phi)")
+    d = d.Define("All_TPPairs", f"CreateTPPair(Tag_Muons, BasicProbe_Muons, {doOS}, Tag_charge, Muon_charge)")
+    d = d.Define("All_TPmass","getTPmass(All_TPPairs, Tag_pt, Tag_eta, Tag_phi, Muon_pt, Muon_eta, Muon_phi)")
     massLow  =  50
     massHigh = 130
     binning_mass = array('d',[massLow + i for i in range(int(1+massHigh-massLow))])
