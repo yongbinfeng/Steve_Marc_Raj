@@ -226,6 +226,8 @@ d = d.Alias("Tag_pt",  "Muon_pt")
 d = d.Alias("Tag_eta", "Muon_eta")
 d = d.Alias("Tag_phi", "Muon_phi")
 d = d.Alias("Tag_charge", "Muon_charge")
+d = d.Alias("Tag_inExtraIdx", "Muon_innerTrackExtraIdx")
+d = d.Alias("Tag_outExtraIdx", "Muon_standaloneExtraIdx")
 
 if (args.genLevelEfficiency):
     d = d.Define("zero","0").Define("one","1") # is this really needed? Can't we just pass 1 or 0 in the functions where we need it?
@@ -261,11 +263,11 @@ if(args.efficiency == 1):
         d = d.Define("goodStandaloneMuon", "MergedStandAloneMuon_pt > 15")
         d = d.Define("passCondition_reco", "trackStandaloneDR(Track_eta, Track_phi, MergedStandAloneMuon_eta[goodStandaloneMuon], MergedStandAloneMuon_phi[goodStandaloneMuon]) < 0.3")
         
-        d = d.Define("All_TPPairs", f"CreateTPPair(Tag_Muons, Probe_Tracks, {doOS}, Tag_charge, Track_charge)")
+        d = d.Define("All_TPPairs", f"CreateTPPair(Tag_Muons, Probe_Tracks, {doOS}, Tag_charge, Track_charge, Tag_inExtraIdx, Track_extraIdx)")
         d = d.Define("All_TPmass", "getTPmass(All_TPPairs, Tag_pt, Tag_eta, Tag_phi, Track_pt, Track_eta, Track_phi)")
 
         # overriding previous pt binning
-        binning_pt = array('d',[24., 65.])
+        #binning_pt = array('d',[24., 65.])
         ## binning is currently 50,130 GeV, but it is overridden below 
         # also for mass
         massLow  =  40
@@ -318,11 +320,11 @@ elif (args.efficiency == 2):
         d = d.Define("Probe_MergedStandMuons","MergedStandAloneMuon_pt > 15 && abs(MergedStandAloneMuon_eta) < 2.4 && isGenMatchedMergedStandMuon")
 
         # Note: no opposite charge here with standalone muons
-        d = d.Define("All_TPPairs","CreateTPPair(Tag_Muons, Probe_MergedStandMuons, 0, Tag_charge, MergedStandAloneMuon_charge)")
+        d = d.Define("All_TPPairs","CreateTPPair(Tag_Muons, Probe_MergedStandMuons, 0, Tag_charge, MergedStandAloneMuon_charge, Tag_outExtraIdx, MergedStandAloneMuon_extraIdx)")
         d = d.Define("All_TPmass","getTPmass(All_TPPairs, Tag_pt, Tag_eta, Tag_phi, MergedStandAloneMuon_pt, MergedStandAloneMuon_eta, MergedStandAloneMuon_phi)")
 
-        massLow  =  40
-        massHigh = 140
+        massLow  =  0
+        massHigh = 200
         binning_mass = array('d',[massLow + i for i in range(int(1+massHigh-massLow))])
         massCut = f"All_TPmass > {massLow} && All_TPmass < {massHigh}"
         d = d.Define("TPPairs", f"All_TPPairs[{massCut}]")
@@ -345,10 +347,15 @@ elif (args.efficiency == 2):
         ##              It mainly depends on whether the histogram range starts from 24 or less, since this Muon_pt cut will contribute less if Muon_standalonePt > 24
         d = d.Define("Muon_forTracking", "Muon_isGlobal && Muon_pt > 10 && Muon_standalonePt > 15 && selfDeltaR(Muon_eta, Muon_phi, Muon_standaloneEta, Muon_standalonePhi) < 0.3")
         # check Muon exists with proper criteria and matching extraIdx with the standalone muon 
-        d = d.Define("passCondition_tracking", "Probe_isGlobal(TPPairs, MergedStandAloneMuon_extraIdx, Muon_standaloneExtraIdx, Muon_forTracking)")
-
+        d = d.Define("passCondition_tracking",
+                     "Probe_isGlobal(TPPairs, MergedStandAloneMuon_extraIdx, Muon_standaloneExtraIdx, Muon_forTracking)")
+        #d = d.Define("passCondition_tracking",
+        #             "Probe_isGlobal_checkExtraIdxTagInnerTrack(TPPairs, MergedStandAloneMuon_extraIdx, Muon_standaloneExtraIdx, Muon_forTracking, Tag_inExtraIdx, Muon_innerTrackExtraIdx)")
+        
         # use the minimum pt of the standalone muon used above to define the range, also a larger upper edge because the pt resolution of standalone muons is bad
-        binning_pt = array('d',[15., 80.]) # try also 24,65
+        #binning_pt = array('d',[15., 80.]) # try also 24,65
+        #binning_pt = array('d',[15., 30., 45., 60., 80.])
+        binning_pt = array('d',[15., 25., 35., 45., 55., 65., 80.])
 
         # Here we are using the muon variables to calulate the mass for the passing probes for tracking efficiency
         ## However the TPPairs were made using indices from MergedStandAloneMuon_XX collections, which are not necessarily valid for Muon_XX
@@ -403,7 +410,7 @@ elif args.efficiency != 7:
     #        2) Do we need to cut on Muon_standalonePt? We might do it for consistency with the previous steps (but then also in the analysis)
     d = d.Define("BasicProbe_Muons", f"Muon_isGlobal && Muon_pt > 24 && Muon_standalonePt > 15 && abs(Muon_eta) < 2.4 && selfDeltaR(Muon_eta, Muon_phi, Muon_standaloneEta, Muon_standalonePhi) < 0.3 && isGenMatchedMuon {chargeCut}")
 
-    d = d.Define("All_TPPairs", f"CreateTPPair(Tag_Muons, BasicProbe_Muons, {doOS}, Tag_charge, Muon_charge)")
+    d = d.Define("All_TPPairs", f"CreateTPPair(Tag_Muons, BasicProbe_Muons, {doOS}, Tag_charge, Muon_charge, Tag_inExtraIdx, Muon_innerTrackExtraIdx, 1)") # these are all Muon_XX, so might just exclude same index in the loop
     d = d.Define("All_TPmass","getTPmass(All_TPPairs, Tag_pt, Tag_eta, Tag_phi, Muon_pt, Muon_eta, Muon_phi)")
     massLow  =  50
     massHigh = 130

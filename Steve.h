@@ -176,21 +176,28 @@ RVec<std::pair<int,int>> CreateTPPair(const RVec<Int_t> &Tag_muons,
                                       const RVec<Int_t> &Probe_Candidates,
                                       const int doOppositeCharge,
                                       const RVec<Int_t> &Tag_Charge, 
-                                      const RVec<Int_t> &Probe_charge)
+                                      const RVec<Int_t> &Probe_charge,
+                                      const RVec<Int_t> &Tag_extraIdx,
+                                      const RVec<Int_t> &Probe_extraIdx,
+                                      const int isSameCollection = false)
 {
 
     // tag and probe collections might contain "same" physical objects, but here no DR cut is considered.
-    // However, I imagine the mass cut would already reject these corner cases
+    // However, I imagine the mass cut would already reject these corner cases, but the cuts with extraIdx should take care of it here.
+    // In addition, is isSameCollection is true we are then using the same collection for both tag and probe (e.g. could be Muon_XX),
+    // so can just skip the loop entry with same indices
+    
     RVec<std::pair<int,int>> TP_pairs;
-    for (int iLep1=0; iLep1<Tag_muons.size(); iLep1++) {
+    for (int iLep1 = 0; iLep1 < Tag_muons.size(); iLep1++) {
         if (not Tag_muons[iLep1]) continue;
-        for(int iLep2=0; iLep2 < Probe_Candidates.size(); iLep2++){
+        for(int iLep2 = 0; iLep2 < Probe_Candidates.size(); iLep2++){
             // Probe_Candidates is an RVec filled with 1 or 0 based on whether the elements from the initial collection
             // satisfy the probe selection (the one for denominator, i.e. all probes)
             // if probe_candidate = 0 we move on, otherwise we keep track of the position of the element 
-            int isProbe_candidate = Probe_Candidates.at(iLep2);   
-            if (not isProbe_candidate) continue;
+            if (isSameCollection && (iLep1 == iLep2)) continue;
+            if (not Probe_Candidates[iLep2]) continue;
             if (doOppositeCharge and (Tag_Charge[iLep1] == Probe_charge[iLep2])) continue;
+            if (Tag_extraIdx[iLep1] == Probe_extraIdx[iLep2]) continue;
             std::pair<int,int> TP_pair = std::make_pair(iLep1, iLep2); 
             TP_pairs.push_back(TP_pair);
         }
@@ -472,13 +479,37 @@ RVec<Int_t> Probe_isGlobal(const RVec<std::pair<int,int>> &TPPairs,
 {
     RVec<Int_t> isGlobal(TPPairs.size(), 0);
     for (auto i=0U; i<TPPairs.size(); i++) {
+        for (unsigned int j=0; j < Muon_standaloneExtraIdx.size(); j++) {
+            if ( (MergedStandAloneMuon_extraIdx[TPPairs.at(i).second] == Muon_standaloneExtraIdx[j]) && Muon_passProbeCondition[j]) {
+                isGlobal[i] = 1;
+                break;
+            }
+        }
+    }
+    return isGlobal;
+}
+
+// this one was for tests, checking again the inner track extraId between tag and probe when the probe is a global muon.
+// If the outer track where already checked and not overlapping between tag and probe, then it was found that the inner tracks are never the same
+RVec<Int_t> Probe_isGlobal_checkExtraIdxTagInnerTrack(const RVec<std::pair<int,int>> &TPPairs, 
+                                                      const RVec<Int_t> &MergedStandAloneMuon_extraIdx, 
+                                                      const RVec<Int_t> &Muon_standaloneExtraIdx, 
+                                                      const RVec<Int_t> &Muon_passProbeCondition,
+                                                      const RVec<Int_t> &Tag_innerTrackExtraIdx,
+                                                      const RVec<Int_t> &Muon_innerTrackExtraIdx)
+{
+    RVec<Int_t> isGlobal(TPPairs.size(), 0);
+    for (auto i=0U; i<TPPairs.size(); i++) {
         std::pair<int,int> TPPair = TPPairs.at(i);
         int tag_index = TPPair.first;
         int probe_index = TPPair.second;
         int condition = 0;
         for (unsigned int j=0; j < Muon_standaloneExtraIdx.size(); j++) {
             if ( (MergedStandAloneMuon_extraIdx[probe_index] == Muon_standaloneExtraIdx[j]) && Muon_passProbeCondition[j]) {
-                condition = 1;
+                // only accept cases where the matched global muon does not coincide with the tag 
+                if (Tag_innerTrackExtraIdx[tag_index] != Muon_innerTrackExtraIdx[j]) {
+                    condition = 1;
+                }
                 break;
             }
         }
