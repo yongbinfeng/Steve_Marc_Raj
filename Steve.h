@@ -7,6 +7,9 @@
 #include "TStyle.h"
 #include <string>
 
+#include <boost/algorithm/string/join.hpp>
+#include <boost/algorithm/string.hpp>
+
 using namespace ROOT;
 using namespace ROOT::VecOps;
 
@@ -20,6 +23,58 @@ using namespace ROOT::VecOps;
   int charge;  
   int original_index;
   };*/
+
+std::unordered_map<int, TH2D> hVertexPileupWeights = {}; // this has the scale factors as a function of vertex z and pileup to make the vertex distribution in MC agree with the one in data
+
+void initializeVertexPileupWeights(const std::string& _filename_vertexPileupWeights = "./utility/vertexPileupWeights.root") {
+
+  // weights vs vertex z and pileup
+  TFile _file_vertexPileupWeights = TFile(_filename_vertexPileupWeights.c_str(), "read");
+  if (!_file_vertexPileupWeights.IsOpen()) {
+    std::cerr << "WARNING: Failed to open prefiring file " << _filename_vertexPileupWeights << "\n";
+    exit(EXIT_FAILURE);
+  }
+  std::cout << "INFO >>> Initializing histograms for vertex-pileup weights from file " << _filename_vertexPileupWeights << std::endl;
+  std::vector<std::string> eras = {"BtoF", "GtoH"};
+  int id = 1;
+  for (auto& era : eras) {
+    std::vector<std::string> vars = {"weight_vertexZ_pileup", era};
+    std::string corrname = boost::algorithm::join(vars, "_");
+    auto* histptr = dynamic_cast<TH2D*>(_file_vertexPileupWeights.Get(corrname.c_str()));
+    if (histptr == nullptr) {
+        std::cerr << "WARNING: Failed to load correction " << corrname << " in file "
+                  << _filename_vertexPileupWeights << "! Aborting" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    histptr->SetDirectory(0);
+    hVertexPileupWeights[id] = *dynamic_cast<TH2D*>(histptr);
+    id++;
+  }
+  _file_vertexPileupWeights.Close();
+  
+}
+
+double getValFromTH2(const TH2& h, const float& x, const float& y, const double& sumError=0.0) {
+  //std::cout << "x,y --> " << x << "," << y << std::endl;
+  int xbin = std::max(1, std::min(h.GetNbinsX(), h.GetXaxis()->FindFixBin(x)));
+  int ybin  = std::max(1, std::min(h.GetNbinsY(), h.GetYaxis()->FindFixBin(y)));
+  //std::cout << "xbin,ybin --> " << xbin << "," << ybin << std::endl;
+  if (sumError)
+    return h.GetBinContent(xbin, ybin) + sumError * h.GetBinError(xbin, ybin);
+  else
+    return h.GetBinContent(xbin, ybin);
+}
+
+double _get_vertexPileupWeight(const Float_t& vertexZ, const Float_t& nTrueInt, int era = 2) {
+    // era = 1 for preVFP, 2 for postVFP
+    // FIXME: for preVFP, histogram range for pileup is up to 45, but bin between 40 and 45 is empty, because there were few events with pileup > 40
+    //        Rather than setting weights to 0 one should use the same as those from N-1 bin
+    const TH2D& h = hVertexPileupWeights[era];
+    return getValFromTH2(h, vertexZ, nTrueInt);
+    
+}
+
+////=====================================================================================
 
 
 float deltaPhi(float phi1, float phi2)
@@ -40,6 +95,15 @@ float deltaR2(float eta1, float phi1, float eta2, float phi2)
 float deltaR(float eta1, float phi1, float eta2, float phi2)
 {
   return std::sqrt(deltaR2(eta1,phi1,eta2,phi2));
+}
+
+RVec<Float_t> selfDeltaR(const RVec<Float_t>& eta1, const RVec<Float_t>& phi1, const RVec<Float_t>& eta2, const RVec<Float_t>& phi2, const float init = 999.9)
+{
+    RVec<Float_t> res(eta1.size(), init);
+    for (unsigned int i = 0; i < res.size(); ++i) {    
+        res[i] = std::sqrt(deltaR2(eta1[i], phi1[i] ,eta2[i] ,phi2[i]));
+    }
+    return res;
 }
 
 RVec<Int_t> CreateProbes_Muon(RVec<Float_t> &Muon_pt, RVec<Float_t> &Muon_standalonePt,
@@ -108,33 +172,32 @@ RVec<Int_t> CreateProbes_MergedStandMuons(RVec<Float_t> &MergedStandAloneMuon_pt
 
 }
 
-RVec<std::pair<int,int>> CreateTPPair(RVec<Int_t> &Muon_charge, RVec<Int_t> &isTag, 
-				      RVec<Bool_t> &isTriggeredMuon, 
-				      RVec<Bool_t> &isGenMatchedMuon, 
-				      RVec<Int_t> &Probe_Candidates, 
-   				      RVec<Bool_t> &isGenMatchedProbe )
+RVec<std::pair<int,int>> CreateTPPair(const RVec<Int_t> &Tag_muons, 
+                                      const RVec<Int_t> &Probe_Candidates,
+                                      const int doOppositeCharge,
+                                      const RVec<Int_t> &Tag_Charge, 
+                                      const RVec<Int_t> &Probe_charge)
 {
-  RVec<std::pair<int,int>> TP_pairs;
-  for(int iLep1=0; iLep1<Muon_charge.size();iLep1++){
-    //if(!isInAcceptance[iLep1]) continue;
-    if(!isTag[iLep1]) continue;
-    if(!isTriggeredMuon[iLep1]) continue;
-    if(!isGenMatchedMuon[iLep1]) continue;
 
-    for(int iLep2=0; iLep2<Probe_Candidates.size(); iLep2++){
-      int probe_candidate = Probe_Candidates.at(iLep2);
-      //if (iLep2==iLep1) continue;
-      //if(!isProbe[iLep2]) continue;
-      //if(!isTriggeredMuon[iLep2]) continue;
-      if(!isGenMatchedProbe[probe_candidate]) continue;
-      //#if(Muon_charge[iLep1] == Muon_charge[iLep2]) continue;
+    // tag and probe collections might contain "same" physical objects, but here no DR cut is considered.
+    // However, I imagine the mass cut would already reject these corner cases
+    RVec<std::pair<int,int>> TP_pairs;
+    for (int iLep1=0; iLep1<Tag_muons.size(); iLep1++) {
+        if (not Tag_muons[iLep1]) continue;
+        for(int iLep2=0; iLep2 < Probe_Candidates.size(); iLep2++){
+            // Probe_Candidates is an RVec filled with 1 or 0 based on whether the elements from the initial collection
+            // satisfy the probe selection (the one for denominator, i.e. all probes)
+            // if probe_candidate = 0 we move on, otherwise we keep track of the position of the element 
+            int isProbe_candidate = Probe_Candidates.at(iLep2);   
+            if (not isProbe_candidate) continue;
+            if (doOppositeCharge and (Tag_Charge[iLep1] == Probe_charge[iLep2])) continue;
+            std::pair<int,int> TP_pair = std::make_pair(iLep1, iLep2); 
+            TP_pairs.push_back(TP_pair);
+        }
 
-      std::pair<int,int> TP_pair = std::make_pair(iLep1,probe_candidate); 
-      TP_pairs.push_back(TP_pair);
     }
+    return TP_pairs;
 
-  }
-  return TP_pairs;
 }
 
 RVec<Bool_t> hasStandAloneOrGlobalMatch(RVec<Float_t> &Track_eta, RVec<Float_t> &Track_phi,
@@ -178,9 +241,8 @@ RVec<Float_t> trackMuonDR(RVec<Float_t> &Track_eta, RVec<Float_t> &Track_phi,
 }
 
 
-RVec<Float_t> trackStandaloneDR(RVec<Float_t> &Track_eta, RVec<Float_t> &Track_phi,
-      				RVec<Float_t> &Muon_standaloneEta, 
-				RVec<Float_t> &Muon_standalonePhi)
+RVec<Float_t> trackStandaloneDR(const RVec<Float_t> &Track_eta, const RVec<Float_t> &Track_phi,
+                                const RVec<Float_t> &Muon_standaloneEta, const RVec<Float_t> &Muon_standalonePhi)
 {
    RVec<Float_t> trackStandaloneDR;
    for(int iTrack=0;iTrack<Track_eta.size();iTrack++){
@@ -188,8 +250,7 @@ RVec<Float_t> trackStandaloneDR(RVec<Float_t> &Track_eta, RVec<Float_t> &Track_p
      float tmp_dr  = 999.;
      
      for (unsigned int iMuon=0; iMuon<Muon_standaloneEta.size(); ++iMuon){
-       tmp_dr  = deltaR(Muon_standaloneEta.at(iMuon), Muon_standalonePhi.at(iMuon), 
-			Track_eta.at(iTrack), Track_phi.at(iTrack));
+       tmp_dr  = deltaR(Muon_standaloneEta.at(iMuon), Muon_standalonePhi.at(iMuon), Track_eta.at(iTrack), Track_phi.at(iTrack));
        if (tmp_dr < dr) dr = tmp_dr;
      } 
      trackStandaloneDR.push_back(dr);
@@ -198,22 +259,18 @@ RVec<Float_t> trackStandaloneDR(RVec<Float_t> &Track_eta, RVec<Float_t> &Track_p
  }
 
 RVec<Bool_t> hasTriggerMatch(RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi, 
-      			     RVec<Int_t> &TrigObj_id, RVec<Float_t> &TrigObj_pt,
-  			     RVec<Float_t> & TrigObj_l1pt, RVec<Float_t> & TrigObj_l2pt, 
-			     RVec<Int_t> &TrigObj_filterBits, RVec<Float_t> &TrigObj_eta, 
-			     RVec<Float_t> &TrigObj_phi)
+                             RVec<Int_t> &TrigObj_id, RVec<Int_t> &TrigObj_filterBits,
+                             RVec<Float_t> &TrigObj_eta, RVec<Float_t> &TrigObj_phi)
 {
   RVec<Bool_t> TriggerMatch;
   for (int iMuon = 0; iMuon<Muon_eta.size(); iMuon++ ){
     bool hasTrigMatch = false;
     for (unsigned int iTrig=0; iTrig<TrigObj_id.size(); ++iTrig){
       if (TrigObj_id[iTrig]  != 13 ) continue;
-      //if (TrigObj_pt[iTrig]   < 24.) continue;
-      //if (TrigObj_l1pt[iTrig] < 22.) continue;
       if (! (( TrigObj_filterBits[iTrig] & 16) || (TrigObj_filterBits[iTrig] & 32) ) ) continue;
       if (deltaR(Muon_eta[iMuon], Muon_phi[iMuon], TrigObj_eta[iTrig], TrigObj_phi[iTrig]) < 0.3) {
-	hasTrigMatch = true;
-	break;
+          hasTrigMatch = true;
+          break;
       }
     }
     TriggerMatch.push_back(hasTrigMatch);
@@ -235,8 +292,8 @@ RVec<Bool_t> hasGenMatch(RVec<Int_t> &GenPart_pdgId, RVec<Int_t> &GenPart_status
 	  (GenPart_statusFlags[iGen] & 1) ) {
 	if (deltaR(Cand_eta[iCand], Cand_phi[iCand], 
 	           GenPart_eta[iGen], GenPart_phi[iGen]) < mcmatch_tmp_dr){
-	  mcmatch_tmp_dr  = deltaR(Cand_eta[iCand], Cand_phi[iCand], 
-				   GenPart_eta[iGen], GenPart_phi[iGen]);
+        mcmatch_tmp_dr  = deltaR(Cand_eta[iCand], Cand_phi[iCand], 
+                                 GenPart_eta[iGen], GenPart_phi[iGen]);
 	  //truePt     = GenPart_pt[ii];
 	  //trueEta    = GenPart_eta[ii];
 	  //trueCharge = GenPart_charge[ii];
@@ -249,7 +306,8 @@ RVec<Bool_t> hasGenMatch(RVec<Int_t> &GenPart_pdgId, RVec<Int_t> &GenPart_status
   return isGenMatched;
 }
 
-RVec<Int_t> GenMatchedIdx(RVec<Int_t> &GenPart_pdgId, RVec<Int_t> &GenPart_status,RVec<Int_t> &GenPart_statusFlags,RVec<Float_t> &GenPart_eta,RVec<Float_t> &GenPart_phi,RVec<Float_t> &Cand_eta, RVec<Float_t> &Cand_phi){
+
+RVec<Int_t> GenMatchedIdx(RVec<Int_t> &GenPart_pdgId, RVec<Int_t> &GenPart_status,RVec<Int_t> &GenPart_statusFlags,RVec<Float_t> &GenPart_eta,RVec<Float_t> &GenPart_phi,RVec<Float_t> &Cand_eta, RVec<Float_t> &Cand_phi, const float coneDR = 0.1){
   RVec<Int_t> isGenMatched;  
   for(int iCand=0;iCand<Cand_eta.size();iCand++){
     int matchIdx = -1;   
@@ -265,74 +323,92 @@ RVec<Int_t> GenMatchedIdx(RVec<Int_t> &GenPart_pdgId, RVec<Int_t> &GenPart_statu
 	} 
       }
     }
-    if (mcmatch_tmp_dr < 0.1) isGenMatched.push_back(matchIdx);
+    if (mcmatch_tmp_dr < coneDR) isGenMatched.push_back(matchIdx);
     else isGenMatched.push_back(-1);
   }
   return isGenMatched;
 }
 
 
-
-RVec<Float_t> getTPmass(RVec<std::pair<int,int>> TPPairs, RVec<Float_t> &Muon_pt,
-			RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi, 
-			RVec<Float_t> &Cand_pt, RVec<Float_t> &Cand_eta, RVec<Float_t> &Cand_phi)
+// use directly the collection of gen muons define in the apporpriate way
+RVec<Bool_t> hasGenMatch(RVec<Float_t> &Gen_eta, RVec<Float_t> &Gen_phi,
+                         RVec<Float_t> &Cand_eta, RVec<Float_t> &Cand_phi,
+                         const float coneDR = 0.1)
 {
-  RVec<Float_t> TPMass;
-  for (int i=0;i<TPPairs.size();i++){
-    std::pair<int,int> TPPair = TPPairs.at(i);
-    int tag_index = TPPair.first;
-    int probe_index = TPPair.second;
-    TLorentzVector tagLep(0,0,0,0);
-    tagLep.SetPtEtaPhiM(Muon_pt[tag_index],Muon_eta[tag_index],Muon_phi[tag_index],0);
-    TLorentzVector probeLep(0,0,0,0);
-    probeLep.SetPtEtaPhiM(Cand_pt[probe_index],Cand_eta[probe_index],Cand_phi[probe_index],0);
-    TPMass.push_back((tagLep+probeLep).M());        
+  RVec<Bool_t> isGenMatched;  
+  float tmpDR = 0.0; // utility variable filled below everytime
+  for(int iCand=0;iCand<Cand_eta.size();iCand++){
+    bool matchMC = false;   
+    float mcmatch_tmp_dr = 999.;
+    for(unsigned int iGen=0; iGen<Gen_eta.size(); iGen++){
+        tmpDR = deltaR(Cand_eta[iCand], Cand_phi[iCand], Gen_eta[iGen], Gen_phi[iGen]);
+        if (tmpDR < mcmatch_tmp_dr){
+            mcmatch_tmp_dr = tmpDR;
+        } 
+    }
+    if (mcmatch_tmp_dr < coneDR) matchMC = true;
+    isGenMatched.push_back(matchMC);
   }
-  return TPMass;
+  return isGenMatched;
 }
 
 
-RVec<Float_t> getVariables(RVec<std::pair<int,int>> TPPairs, RVec<Float_t> &Cand_variable, 
-			   float option /*1 for tag and 2 for probe*/)
+RVec<Int_t> GenMatchedIdx(RVec<Float_t> &GenPart_eta,RVec<Float_t> &GenPart_phi,RVec<Float_t> &Cand_eta, RVec<Float_t> &Cand_phi, const float coneDR = 0.1){
+
+    RVec<Int_t> isGenMatched(Cand_eta.size(), -1); //  fill with proper size and initialize to -1  
+    float tmpDR = 0.0; // utility variable filled below everytime
+    for(int iCand=0;iCand<Cand_eta.size();iCand++){
+        int matchIdx = -1;   
+        float mcmatch_tmp_dr = 999.;
+        for(unsigned int iGen=0; iGen<GenPart_eta.size(); iGen++){
+            tmpDR = deltaR(Cand_eta[iCand], Cand_phi[iCand], GenPart_eta[iGen], GenPart_phi[iGen]);
+            if (tmpDR < mcmatch_tmp_dr){
+                mcmatch_tmp_dr = tmpDR;
+                matchIdx=iGen;
+            } 
+        }
+        if (mcmatch_tmp_dr < coneDR) isGenMatched[iCand] = matchIdx;
+        else isGenMatched[iCand] = -1;
+    }
+    return isGenMatched;
+}
+
+RVec<Float_t> getTPmass(RVec<std::pair<int,int>> TPPairs,
+                        RVec<Float_t> &Muon_pt, RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi, 
+                        RVec<Float_t> &Cand_pt, RVec<Float_t> &Cand_eta, RVec<Float_t> &Cand_phi)
 {
-  RVec<Float_t> Variables;
-  for (int i=0;i<TPPairs.size();i++){
-    std::pair<int,int> TPPair = TPPairs.at(i);
-    float variable; 
-    if (option==1) variable = Cand_variable.at(TPPair.first);
-    else if (option==2) variable = Cand_variable.at(TPPair.second);
-    Variables.push_back(variable);
-  }
-  return Variables;
+    // muon mass is used below
+    RVec<Float_t> TPMass;
+    for (int i=0;i<TPPairs.size();i++){
+        std::pair<int,int> TPPair = TPPairs.at(i);
+        int tag_index = TPPair.first;
+        int probe_index = TPPair.second;
+        ROOT::Math::PtEtaPhiMVector tag(  Muon_pt[tag_index],   Muon_eta[tag_index],   Muon_phi[tag_index],   0.106);
+        ROOT::Math::PtEtaPhiMVector probe(Cand_pt[probe_index], Cand_eta[probe_index], Cand_phi[probe_index], 0.106);
+        TPMass.push_back( (tag + probe).mass() );
+    }
+    return TPMass;
+    
 }
 
-RVec<Int_t> getVariables(RVec<std::pair<int,int>> TPPairs, RVec<Int_t> &Cand_variable,
-			 float option /*1 for tag and 2 for probe*/){
-  RVec<Int_t> Variables;
-  for (int i=0;i<TPPairs.size();i++){
-    std::pair<int,int> TPPair = TPPairs.at(i);
-    int variable;
-    if(option==1) variable = Cand_variable.at(TPPair.first);
-    else if (option==2) variable = Cand_variable.at(TPPair.second);
-    Variables.push_back(variable);
-  }
-  return Variables;
+template <typename T>
+RVec<T> getVariables(RVec<std::pair<int,int>> TPPairs,
+                     RVec<T>  &Cand_variable, 
+                     int option /*1 for tag and 2 for probe*/)
+{
+    RVec<T>  Variables(TPPairs.size(), 0);
+    for (int i = 0; i < TPPairs.size(); i++){
+        std::pair<int, int> TPPair = TPPairs.at(i);
+        T variable; 
+        if (option==1)      variable = Cand_variable.at(TPPair.first);
+        else if (option==2) variable = Cand_variable.at(TPPair.second);
+        Variables[i] = variable;
+    }
+    return Variables;
 }
 
-RVec<Bool_t> getVariables(RVec<std::pair<int,int>> TPPairs, RVec<Bool_t> &Cand_variable,
-			  float option /*1 for tag and 2 for probe*/){
-  RVec<Bool_t> Variables;
-  for (int i=0;i<TPPairs.size();i++){
-    std::pair<int,int> TPPair = TPPairs.at(i);
-    bool variable;
-    if(option==1) variable = Cand_variable.at(TPPair.first);
-    else if (option==2) variable = Cand_variable.at(TPPair.second);
-    Variables.push_back(variable);
-  }
-  return Variables;
-}
 
-RVec<Float_t> getGenVariables(RVec<std::pair<int,int>> TPPairs, RVec<int> &GenMatchedIdx, RVec<Float_t> &Cand_variable, float option /*1 for tag and 2 for probe*/){
+RVec<Float_t> getGenVariables(RVec<std::pair<int,int>> TPPairs, RVec<int> &GenMatchedIdx, RVec<Float_t> &Cand_variable, int option /*1 for tag and 2 for probe*/){
   RVec<Float_t> Variables;
   for (int i=0;i<TPPairs.size();i++){
     std::pair<int,int> TPPair = TPPairs.at(i);
@@ -388,36 +464,67 @@ RVec<Bool_t> isOS(RVec<std::pair<int,int>> TPPairs, RVec<Int_t> Muon_charge,
   return isOS;
 }
 
-RVec<Bool_t> Probe_isGlobal(RVec<std::pair<int,int>> &TPPairs, 
-			    RVec<Int_t> &MergedStandAloneMuon_extraIdx, 
-			    RVec<Int_t> &Muon_standaloneExtraIdx, 
-			    RVec<Bool_t> &Muon_isGlobal, RVec<Float_t> &Muon_pt, 
-			    RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi, 
-			    RVec<Float_t> &Muon_standalonePt, RVec<Float_t> &Muon_standaloneEta, 
-			    RVec<Float_t> &Muon_standalonePhi)
+
+RVec<Int_t> Probe_isGlobal(const RVec<std::pair<int,int>> &TPPairs, 
+                           const RVec<Int_t> &MergedStandAloneMuon_extraIdx, 
+                           const RVec<Int_t> &Muon_standaloneExtraIdx, 
+                           const RVec<Int_t> &Muon_passProbeCondition)
 {
-  RVec<Bool_t> isGlobal;
-  for (auto i=0U; i<TPPairs.size(); i++) {
-    std::pair<int,int> TPPair = TPPairs.at(i);
-    int  tag_index = TPPair.first;
-    int probe_index = TPPair.second;
-    bool condition=false;
-    for (auto j=0U; j<Muon_standaloneExtraIdx.size(); j++) {
-      if ( (MergedStandAloneMuon_extraIdx[probe_index] == Muon_standaloneExtraIdx[j]) && 
-	   (Muon_isGlobal[j]) && (Muon_pt[j] > 15.) && (Muon_standalonePt[j] > 15.) && 
-	   (deltaR(Muon_eta[j], Muon_phi[j], Muon_standaloneEta[j], 
-		   Muon_standalonePhi[j]) < 0.3 ))
-        condition=true;
+    RVec<Int_t> isGlobal(TPPairs.size(), 0);
+    for (auto i=0U; i<TPPairs.size(); i++) {
+        std::pair<int,int> TPPair = TPPairs.at(i);
+        int tag_index = TPPair.first;
+        int probe_index = TPPair.second;
+        int condition = 0;
+        for (unsigned int j=0; j < Muon_standaloneExtraIdx.size(); j++) {
+            if ( (MergedStandAloneMuon_extraIdx[probe_index] == Muon_standaloneExtraIdx[j]) && Muon_passProbeCondition[j]) {
+                condition = 1;
+                break;
+            }
+        }
+        isGlobal[i] = condition;
     }
-    isGlobal.push_back(condition);
-  }
-  return isGlobal;
+    return isGlobal;
 }
+
+
+RVec<Int_t> getMergedStandAloneMuon_MuonIdx(const RVec<Int_t> &MergedStandAloneMuon_extraIdx, 
+                                            const RVec<Int_t> &Muon_standaloneExtraIdx)
+{
+    RVec<Int_t> res(MergedStandAloneMuon_extraIdx.size(), -1); // initialize to invalid index
+    for (unsigned int i =0; i < MergedStandAloneMuon_extraIdx.size(); i++) {
+        for (unsigned int j = 0; j < Muon_standaloneExtraIdx.size(); j++) {
+            if ( MergedStandAloneMuon_extraIdx[i] == Muon_standaloneExtraIdx[j] ) {
+                res[i] = j;
+            }
+        }
+    }
+    return res;
+
+}
+
+RVec<Float_t> getMergedStandAloneMuon_MuonVar(const RVec<Int_t> &MergedStandAloneMuon_MuonIdx, 
+                                              const RVec<Float_t> &Muon_var,
+                                              const Float_t invalidValue = -99.9)
+{
+    // MergedStandAloneMuon_MuonIdx an be created using getMergedStandAloneMuon_MuonIdx
+    // the assumption is that this function will be used only for MergedStandAloneMuon elements for whcih the corresponding Muon object exist
+    RVec<Float_t> res(MergedStandAloneMuon_MuonIdx.size(), invalidValue); // initialize to default value for invalid indices
+    int index = -1;
+    for (unsigned int i =0; i < MergedStandAloneMuon_MuonIdx.size(); i++) {
+        index = MergedStandAloneMuon_MuonIdx[i];
+        if (index >= 0) res[i] = Muon_var[index];
+    }
+    return res;
+
+}
+
 
 
 float clipGenWeight(float genWeight)
 {
-  float sign =  genWeight/ abs(genWeight);
+  //float sign =  genWeight/ abs(genWeight); // these ratios are nasty sometimes
+  float sign = std::copysign(1., genWeight); // return 1 with the sign of genWeight
   return sign;
 }
 
@@ -428,25 +535,28 @@ RVec<Bool_t> createTrues(int size)
 }
 
 
-float puw_2016(int nTrueInt, int period=0)
-{ 
-  // inclusive
-  float _puw2016_nTrueInt_36fb[100] = {0.6580788810596797, 0.4048055020122533, 0.8615727417125882, 0.78011444438815, 0.7646792294649241, 0.4428435234418468, 0.21362966755761287, 0.1860690038399781, 0.26922404664693694, 0.3391088547725875, 0.4659907891982563, 0.6239096711946419, 0.7379729344299205, 0.8023612182327676, 0.8463429262728119, 0.8977203788568622, 0.9426445582538644, 0.9730606480643851, 0.9876071912898365, 0.9967809848428801, 1.0101217492530405, 1.0297182331139065, 1.0495800245321394, 1.062993596017779, 1.0719371123276982, 1.0807330103942534, 1.0874070624201613, 1.092162599537252, 1.1002282592549013, 1.1087757206073987, 1.1145692898936854, 1.1177137330250873, 1.1227674788957978, 1.127920444541154, 1.1304392102417709, 1.1363304087643262, 1.1484550576573724, 1.1638015070216376, 1.1833470331674814, 1.2079950937281854, 1.2274834937176624, 1.2444596857655403, 1.269207386640866, 1.2896345429784277, 1.3441092120892817, 1.318565807546743, 1.3245909554149022, 1.2438485820227307, 1.1693858006040387, 0.9959473986900877, 0.8219068296672665, 0.6541529992036196, 0.4693498259046716, 0.32997121176496014, 0.31310467423384075, 0.23393084684715088, 0.2693460933531134, 0.2514663792161372, 0.3548113113715822, 0.5892264892080126, 0.6554126787320194, 0.7565044847439312, 1.0033865725393603, 1.4135667773217673, 0.8064239843371759, 1.096753894690768, 1.0, 1.0, 1.0, 1.0, 1.0, 1.409161148159025, 2.436803424843253, 1.0, 1.0, 1.5123015283558174, 1.0, 1.0, 1.0, 2.184264934077207, 0.44722379540985835, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+// define PU weights as global static variable
+static double _pileupWeights_2016UL_preVFP[100] = {0.2504131118100572, 0.3939321013157489, 0.8526636158826547, 0.9866213669526419, 1.190215852465404, 1.1717732155849212, 1.326891895326891, 1.302128523414722, 1.2168725803758078, 1.1749255163178758, 1.1447644053358441, 1.102713304466158, 1.0692501779890462, 1.0550975672887584, 1.0569511994368632, 1.0729183940184346, 1.0872387106666015, 1.1011786998112356, 1.1056898819281813, 1.101303498400071, 1.088286672084464, 1.0718292808747956, 1.058079574499241, 1.0449648261552615, 1.025695752731563, 1.00046910455114, 0.965609276269846, 0.923878093642559, 0.8813681476454888, 0.8400510076526477, 0.798328868347709, 0.761260571593272, 0.7314034121263029, 0.7061304389022356, 0.6819866841190891, 0.6603991169581992, 0.6410919007298677, 0.6223846217721132, 0.605687078856489, 0.5930840812694836, 0.582011303650068, 0.5781708392917653, 0.5827659365926185, 0.5992578284204035, 0.6356323085478808, 0.6626791743184136, 0.7155301587041382, 0.751988682685627, 0.7981531968150425, 0.8050985639827735, 0.7868927507088908, 0.7454549444968995, 0.6465468874666872, 0.5364058298875525, 0.47499187516544383, 0.3482692962400063, 0.2632917619857064, 0.17751675327388303, 0.1377624652170653, 0.1149203417849365, 0.08616115852929608, 0.06222937238005178, 0.042695760425515435, 0.04004166808477174, 0.01974930104922166, 0.01647184503725847, 0.06290628342997077, 0.01303886642827827, 0.013667854369381956, 1.0, 1.0, 0.0019529063925951538, 0.0032365977926854385, 1.0, 1.0, 0.0005276241856562116, 1.0, 1.0, 1.0, 0.00016103753557202973, 1.0388527323106208e-05, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
 
-  // preVFP
-  float _puw2016_nTrueInt_BtoF[100] = {0.017867211276858426, 0.25019181678340197, 0.7305862075344697, 0.8203306355218927, 0.8568507658433443, 0.5021252568573517, 0.26598094658249777, 0.2525594126097894, 0.43091072564779115, 0.5816151668719733, 0.7400719694832786, 0.8635841784600747, 0.9396947027327512, 0.9867166485834531, 1.020291825978338, 1.058677896425578, 1.0951610451340548, 1.1270599475402712, 1.149199627966607, 1.161062844833281, 1.1570323009561523, 1.1408277403854514, 1.1237795117739837, 1.1080566938230716, 1.0897761375745778, 1.064304242937247, 1.0256371301024838, 0.974592047960344, 0.919208105883519, 0.8614029922190752, 0.80250010071568, 0.7447070188841107, 0.691304388080654, 0.6402835441510876, 0.5891723690900388, 0.5400972141379156, 0.49313582436893444, 0.4463956167604181, 0.400690015469447, 0.3570993263445747, 0.313769141057574, 0.272973076482914, 0.23756151770204517, 0.2052480930611912, 0.18165295449088267, 0.15154171165962477, 0.13020442654298184, 0.1060542785336088, 0.08931962151840153, 0.07320668426537356, 0.06699868236915886, 0.07342602448799117, 0.09022522247731071, 0.1221948811200131, 0.21751127388127575, 0.26185148964193156, 0.3993515054053398, 0.4259481886684673, 0.6348999885572649, 1.0768669803515931, 1.2073680188570837, 1.3977538479690192, 1.8560151439282793, 2.6159138791249634, 1.492621348422977, 2.030155370346692, 1.0, 1.0, 1.0, 1.0, 1.0, 2.608617469665849, 4.5109759375776735, 1.0, 1.0, 2.7995528359963338, 1.0, 1.0, 1.0, 4.043483083032464, 0.8278949263309181, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+static double _pileupWeights_2016UL_postVFP[100] = {0.2779610550399915, 0.35168574986879175, 0.9401358131220096, 0.7172607749435421, 0.6450278243068622, 0.34514283732429957, 0.1611589141974616, 0.11228086636773361, 0.1128907001750219, 0.132248161931188, 0.23663365123479801, 0.3748294200454673, 0.49634027107576173, 0.5788690583768407, 0.6337386853819873, 0.6829452947698369, 0.7290431580271535, 0.771240232782898, 0.8053320518674009, 0.838145513094554, 0.8732137242554343, 0.9141744181800968, 0.9620176337543163, 1.0117461834726504, 1.0592899699789526, 1.1108798663176178, 1.1665249980457664, 1.2278912372416946, 1.2978032479847579, 1.3734228274583853, 1.4464864083532345, 1.5217674744443201, 1.6042012731236663, 1.6903024407379545, 1.7736002585270576, 1.8587194366394921, 1.945388713886392, 2.0267678295124067, 2.103193805887598, 2.176901779641042, 2.2325068336824807, 2.2853919797700124, 2.3352157415420938, 2.3902044532666786, 2.474527728196408, 2.4672726014266892, 2.496437077366503, 2.4109004529454627, 2.3100068766977055, 2.0729403043523136, 1.7851603570781098, 1.4868763727687704, 1.1436607286230618, 0.8611002919532451, 0.720199723366783, 0.5270297520641577, 0.4232092942842518, 0.3207745497560822, 0.2913258236130013, 0.28994313455300363, 0.2595939673337032, 0.2213468961151929, 0.17617832286578322, 0.18811385931872351, 0.10383430153310313, 0.09553214426384232, 0.39783568721356927, 0.08910667460692347, 0.10021460424296642, 1.0, 1.0, 0.01716284582706522, 0.030004459306439593, 1.0, 1.0, 0.005676828768647521, 1.0, 1.0, 1.0, 0.0021085121280920915, 0.0001433866510502697, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
 
-  // postVFP
-  float _puw2016_nTrueInt_GtoH[100] = {1.5094769667755739, 0.5678507573322055, 1.0105884486266141, 0.7259960323564019, 0.6619453439299897, 0.37363396015230216, 0.15239333007202369, 0.10791755923476429, 0.07918472234473897, 0.05419619726622047, 0.14361053792634917, 0.34283985083406093, 0.5010734484221103, 0.5859542596067007, 0.6417013874657507, 0.7081679228576429, 0.7630928885638684, 0.7927011423655624, 0.7977355318365416, 0.804189334635704, 0.8379574350304874, 0.8991008934966008, 0.9625166892724227, 1.0100064501247878, 1.0501599728932576, 1.0991686204042044, 1.159807646806213, 1.230197853416741, 1.3121394462817406, 1.3989162630341463, 1.4799356011552773, 1.5557799985845535, 1.6310266488456922, 1.7003552120673373, 1.7676611780885065, 1.8405616412980672, 1.9250530644650858, 2.010419966610567, 2.10422235818776, 2.2195187847594804, 2.2997062399954857, 2.395010762430828, 2.4803953120930684, 2.5918893616537275, 2.7047108284644694, 2.71073345533101, 2.6519181014415363, 2.6277548910588657, 2.3664596415368297, 2.1655717980383105, 1.8274047657200394, 1.3313115741327561, 0.9113129353116672, 0.5869561379336159, 0.4284308024180917, 0.20595003106437168, 0.10999572232736675, 0.049536718778780756, 0.035006854789963834, 0.012922619333388894, 0.009214760376410974, 0.009219346474718641, 0.0015371306555079958, 0.001800361515424057, 0.0003153024223498953, 0.00010484990280832637, 1.0, 9.561632218479775e-05, 4.4263424947054785e-05, 1.0, 1.0, 8.750970959266416e-06, 1.9850705244600614e-06, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0235991128869821e-08, 1.3636783092893852e-09, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+static double _pileupWeights_2016UL_all[100] = {0.2632356557554427, 0.3742679945096482, 0.8933786734001985, 0.8612440202897551, 0.936451083487855, 0.7870074904870388, 0.7842865089890744, 0.7482986514919006, 0.7030100369691004, 0.6895979517202786, 0.7220632836803534, 0.763910403022603, 0.8025819045425514, 0.8334308921185805, 0.8599614999010246, 0.891400406962681, 0.920511990765391, 0.9476046032834685, 0.9658844727496724, 0.9788132346809981, 0.9881782065639063, 0.99844680043953, 1.013366310557985, 1.0295027823268927, 1.0413326125642286, 1.0518612115035215, 1.0591280791177433, 1.0653849154487818, 1.0752032129322615, 1.0883157707092646, 1.1000221189424457, 1.1152482759080458, 1.1376583849438306, 1.1642259358328428, 1.1900922407614898, 1.2181726985095205, 1.2481936021128097, 1.276072820817388, 1.302720815842171, 1.3302923682657466, 1.3502556436654813, 1.3728188431559898, 1.398466203158693, 1.4328769341812313, 1.491569796604876, 1.5026503594434713, 1.5444761542923757, 1.5241504697957315, 1.5018649072481693, 1.3952317835832393, 1.2515492277844895, 1.0905590695743195, 0.8779349087382351, 0.6875390369622981, 0.5891270170548337, 0.4314756460341123, 0.3377274310451597, 0.24419793435431333, 0.20924050243363612, 0.19638694831074852, 0.1668876866007459, 0.1362926671800032, 0.10482693328817545, 0.1089637710285652, 0.05888774433883642, 0.05327147659976019, 0.21880347556380075, 0.048445604603131555, 0.05395215052606778, 1.0, 1.0, 0.009032568027473709, 0.015696042685489516, 1.0, 1.0, 0.0029243875845773007, 1.0, 1.0, 1.0, 0.001067514594009139, 7.229421196561938e-05, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
 
 
-  if (nTrueInt<100) {
-    if      (period==0) return _puw2016_nTrueInt_36fb[nTrueInt]; 
-    else if (period==1) return _puw2016_nTrueInt_BtoF[nTrueInt]; 
-    else if (period==2) return _puw2016_nTrueInt_GtoH[nTrueInt]; 
-    else { std::cout<< " you are giving a wrong period to the pileup weight function, returning 0 for the events!!!!" << std::endl; return 0.;}
-  }
-  else  return 1.;
+double puw_2016(float nTrueInt, int period=0)
+{
+    // NanoAOD store nTrueInt as float even though it should be an integer
+    // cast it back to int below
+    if (nTrueInt<100) {
+        if      (period == 0) return _pileupWeights_2016UL_all[static_cast<int>(nTrueInt)];
+        else if (period == 1) return _pileupWeights_2016UL_preVFP[static_cast<int>(nTrueInt)];
+        else if (period == 2) return _pileupWeights_2016UL_postVFP[static_cast<int>(nTrueInt)];
+        else {
+            std::cout<< " you are giving a wrong period to the pileup weight function, returning 0 for the events!!!!" << std::endl;
+            return 0.;
+        }
+    }
+    else  return 1.;
 }
 
 
@@ -536,4 +646,11 @@ void saveHistogramsGen(ROOT::RDF::RResultPtr<THnT<double> > histo_pass, ROOT::RD
     delete histo_norm;
     f_out.Close();
   }
+}
+
+template <typename T>
+int printRvec(const RVec<T>  &vec, const int id = 0)
+{
+    std::cout << id << ": size = " << vec.size() << std::endl;
+    return 1;
 }
