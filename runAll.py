@@ -60,8 +60,10 @@ if __name__ == "__main__":
     #                    help='Merge root files in a new one')
     parser.add_argument('-nw', '--noVertexPileupWeight', action='store_true',
                         help='Do not use weights for vertex z position')
-    parser.add_argument('-nos', '--noOppositeCharge', action='store_true',
-                        help='Do not require opposite sign charge for tag-probe pairs (note that tracking never uses it by default)')
+    parser.add_argument("-nos", "--noOppositeCharge", action="store_true",
+                        help="Don't require opposite charges between tag and probe (including tracking, unless also using --noOppositeChargeTracking)")
+    parser.add_argument(        "--noOppositeChargeTracking", action="store_true",
+                                help="Don't require opposite charges between tag and probe for tracking")
     parser.add_argument('-s','--steps', default=None, nargs='*', type=int, choices=list(workingPoints.keys()),
                         help='Default runs all working points, but can choose only some if needed')
     args = parser.parse_args()
@@ -95,9 +97,11 @@ if __name__ == "__main__":
 
         isdata = 0 if xrun == "mc" else 1
         inpath = indir + (inputdir_data if isdata else inputdir_mc)
-        for wp in workingPoints.keys():
+        for wp in workingPoints.keys():            
             if args.steps and wp not in args.steps:
                 continue
+            if wp == 2 and args.noOppositeChargeTracking:
+                postfix = postfix.replace("vertexWeights1", "vertexWeights0")
             charges = [-1, 1] if workingPoints[wp] == "trigger" else [0]
             for ch in charges:
                 step = workingPoints[wp]
@@ -110,6 +114,8 @@ if __name__ == "__main__":
                     cmd += " -nw"
                 if args.noOppositeCharge:
                     cmd += " -nos"
+                if args.noOppositeChargeTracking and wp == 2:
+                    cmd += " --noOppositeChargeTracking "
                 print("")
                 print(f"Running for {xrun} and {step} efficiency")
                 safeSystem(cmd, dryRun=args.dryRun)

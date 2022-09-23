@@ -88,7 +88,8 @@ parser.add_argument("-c","--charge", help="Make efficiencies for a specific char
 parser.add_argument('-nw', '--noVertexPileupWeight', action='store_true', help='Do not use weights for vertex z position')
 #parser.add_argument("-vpw", "--vertexPileupWeight", action="store_true", help="Use weights for vertex z position versus pileup (only for MC)")
 
-parser.add_argument("-nos", "--noOppositeCharge", action="store_true", help="Don't require opposite charges between tag and probe (note that tracking still never uses it with standalone muons)")
+parser.add_argument("-nos", "--noOppositeCharge", action="store_true", help="Don't require opposite charges between tag and probe (including tracking, unless also using --noOppositeChargeTracking)")
+parser.add_argument(        "--noOppositeChargeTracking", action="store_true", help="Don't require opposite charges between tag and probe for tracking")
 
 parser.add_argument("-zqt","--zqtprojection", action="store_true", help="Efficiencies evaluated as a function of zqtprojection (only for trigger and isolation)")
 
@@ -185,6 +186,7 @@ d = d.Filter("HLT_IsoMu24 || HLT_IsoTkMu24","HLT Cut")
 d = d.Filter("PV_npvsGood >= 1","NVtx Cut")
 
 doOS = 0 if args.noOppositeCharge else 1
+doOStracking = 0 if args.noOppositeChargeTracking else doOS
 
 if (args.isData == 1):
     jsonhelper = make_jsonhelper("Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt")
@@ -320,11 +322,11 @@ elif (args.efficiency == 2):
         d = d.Define("Probe_MergedStandMuons","MergedStandAloneMuon_pt > 15 && abs(MergedStandAloneMuon_eta) < 2.4 && isGenMatchedMergedStandMuon")
 
         # Note: no opposite charge here with standalone muons
-        d = d.Define("All_TPPairs","CreateTPPair(Tag_Muons, Probe_MergedStandMuons, 0, Tag_charge, MergedStandAloneMuon_charge, Tag_outExtraIdx, MergedStandAloneMuon_extraIdx)")
+        d = d.Define("All_TPPairs", f"CreateTPPair(Tag_Muons, Probe_MergedStandMuons, {doOStracking}, Tag_charge, MergedStandAloneMuon_charge, Tag_outExtraIdx, MergedStandAloneMuon_extraIdx)")
         d = d.Define("All_TPmass","getTPmass(All_TPPairs, Tag_pt, Tag_eta, Tag_phi, MergedStandAloneMuon_pt, MergedStandAloneMuon_eta, MergedStandAloneMuon_phi)")
 
-        massLow  =  0
-        massHigh = 200
+        massLow  =  40
+        massHigh = 140
         binning_mass = array('d',[massLow + i for i in range(int(1+massHigh-massLow))])
         massCut = f"All_TPmass > {massLow} && All_TPmass < {massHigh}"
         d = d.Define("TPPairs", f"All_TPPairs[{massCut}]")
@@ -355,8 +357,9 @@ elif (args.efficiency == 2):
         # use the minimum pt of the standalone muon used above to define the range, also a larger upper edge because the pt resolution of standalone muons is bad
         #binning_pt = array('d',[15., 80.]) # try also 24,65
         #binning_pt = array('d',[15., 30., 45., 60., 80.])
-        binning_pt = array('d',[15., 25., 35., 45., 55., 65., 80.])
-
+        #binning_pt = array('d',[15., 25., 35., 45., 55., 65., 80.])
+        binning_pt = array('d',[(15.0 + i*1.0) for i in range(66) ])
+        
         # Here we are using the muon variables to calulate the mass for the passing probes for tracking efficiency
         ## However the TPPairs were made using indices from MergedStandAloneMuon_XX collections, which are not necessarily valid for Muon_XX
         ## Thus, for each passing MergedStandAloneMuon I store the pt,eta,phi of the corresponding Muon (which exists as long as we use the MergedStandAloneMuon indices from TPPairs_pass)
