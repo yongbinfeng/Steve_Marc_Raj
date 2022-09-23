@@ -101,7 +101,7 @@ if __name__ == "__main__":
             if args.steps and wp not in args.steps:
                 continue
             if wp == 2 and args.noOppositeChargeTracking:
-                postfix = postfix.replace("vertexWeights1", "vertexWeights0")
+                postfix = postfix.replace("oscharge1", "oscharge0")
             charges = [-1, 1] if workingPoints[wp] == "trigger" else [0]
             for ch in charges:
                 step = workingPoints[wp]
