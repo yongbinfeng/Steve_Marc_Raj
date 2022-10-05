@@ -66,6 +66,8 @@ if __name__ == "__main__":
                                 help="Don't require opposite charges between tag and probe for tracking")
     parser.add_argument('-s','--steps', default=None, nargs='*', type=int, choices=list(workingPoints.keys()),
                         help='Default runs all working points, but can choose only some if needed')
+    parser.add_argument('-wpc','--workinPointsByCharge', default=["trigger"], nargs='*', type=str, choices=list(workingPoints.values()),
+                        help='Default runs all working points, but can choose only some if needed')
     args = parser.parse_args()
 
     outdir = args.outdir
@@ -102,7 +104,7 @@ if __name__ == "__main__":
                 continue
             if wp == 2 and args.noOppositeChargeTracking:
                 postfix = postfix.replace("oscharge1", "oscharge0")
-            charges = [-1, 1] if workingPoints[wp] == "trigger" else [0]
+            charges = [-1, 1] if workingPoints[wp] in args.workinPointsByCharge else [0]
             for ch in charges:
                 step = workingPoints[wp]
                 if ch:

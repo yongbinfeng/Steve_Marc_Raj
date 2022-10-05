@@ -265,6 +265,24 @@ RVec<Float_t> trackStandaloneDR(const RVec<Float_t> &Track_eta, const RVec<Float
    return trackStandaloneDR;
  }
 
+RVec<Float_t> coll1coll2DR(const RVec<Float_t> &coll1_eta, const RVec<Float_t> &coll1_phi,
+                           const RVec<Float_t> &coll2_eta, const RVec<Float_t> &coll2_phi)
+{
+    RVec<Float_t> coll1coll2DR(coll1_eta.size(), 999.);
+    for(int ic1 = 0; ic1 < coll1_eta.size(); ic1++){
+        float dr = 999.;
+        float tmp_dr  = 999.;
+     
+        for (unsigned int ic2 = 0; ic2 < coll2_eta.size(); ++ic2){
+            tmp_dr  = deltaR(coll2_eta.at(ic2), coll2_phi.at(ic2), coll1_eta.at(ic1), coll1_phi.at(ic1));
+            if (tmp_dr < dr) dr = tmp_dr;
+        } 
+        coll1coll2DR[ic1] = dr;
+    }
+    return coll1coll2DR;
+}
+
+
 RVec<Bool_t> hasTriggerMatch(RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi, 
                              RVec<Int_t> &TrigObj_id, RVec<Int_t> &TrigObj_filterBits,
                              RVec<Float_t> &TrigObj_eta, RVec<Float_t> &TrigObj_phi)
