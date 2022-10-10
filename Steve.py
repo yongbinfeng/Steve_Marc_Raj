@@ -334,7 +334,7 @@ elif (args.efficiency == 2):
         d = d.Define("All_TPmass","getTPmass(All_TPPairs, Tag_pt, Tag_eta, Tag_phi, MergedStandAloneMuon_pt, MergedStandAloneMuon_eta, MergedStandAloneMuon_phi)")
 
         massLow  =  50
-        massHigh = 130
+        massHigh = 150
         binning_mass = array('d',[massLow + i for i in range(int(1+massHigh-massLow))])
         massCut = f"All_TPmass > {massLow} && All_TPmass < {massHigh}"
         d = d.Define("TPPairs", f"All_TPPairs[{massCut}]")
@@ -452,8 +452,8 @@ elif args.efficiency != 7:
     d = d.Define("passCondition_IDIP", "Muon_mediumId && abs(Muon_dxybs) < 0.05")
     d = d.Define("passCondition_Trig", "isTriggeredMuon")
     d = d.Define("passCondition_Iso",  "Muon_pfRelIso04_all < 0.15")
-    #d = d.Define("passCondition_Iso",  "Muon_pfRelIso03_all < 0.15")
-    #d = d.Define("passCondition_Iso",  "Muon_pfRelIso03_chg < 0.15")
+    #d = d.Define("passCondition_Iso",  "Muon_pfRelIso03_all < 0.10")
+    #d = d.Define("passCondition_Iso",  "Muon_pfRelIso03_chg < 0.05")
     
     # For IDIP
     if (args.efficiency == 3):
