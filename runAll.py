@@ -104,14 +104,16 @@ if __name__ == "__main__":
         for wp in workingPoints.keys():            
             if args.steps and wp not in args.steps:
                 continue
-            if wp == 2 and args.noOppositeChargeTracking:
-                postfix = postfix.replace("oscharge1", "oscharge0")
             charges = [-1, 1] if workingPoints[wp] in args.workinPointsByCharge else [0]
             for ch in charges:
                 step = workingPoints[wp]
                 if ch:
                     step += "plus" if ch == 1 else "minus"
-                outfile = f"{outdir}tnp_{step}_{xrun}_{postfix}.root"
+                if wp == 2 and args.noOppositeChargeTracking:
+                    postfixTracking = postfix.replace("oscharge1", "oscharge0")
+                    outfile = f"{outdir}tnp_{step}_{xrun}_{postfixTracking}.root"
+                else:
+                    outfile = f"{outdir}tnp_{step}_{xrun}_{postfix}.root"
                 outfiles.append(outfile)
                 cmd = f"python {args.executable} -i {inpath} -o {outfile} -d {isdata} -e {wp} -c {ch}"
                 if args.noVertexPileupWeight:

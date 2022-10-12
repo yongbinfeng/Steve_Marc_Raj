@@ -265,10 +265,11 @@ RVec<Float_t> trackStandaloneDR(const RVec<Float_t> &Track_eta, const RVec<Float
    return trackStandaloneDR;
  }
 
+
 RVec<Float_t> coll1coll2DR(const RVec<Float_t> &coll1_eta, const RVec<Float_t> &coll1_phi,
                            const RVec<Float_t> &coll2_eta, const RVec<Float_t> &coll2_phi)
 {
-    RVec<Float_t> coll1coll2DR(coll1_eta.size(), 999.);
+    RVec<Float_t> resDR(coll1_eta.size(), 999.);
     for(int ic1 = 0; ic1 < coll1_eta.size(); ic1++){
         float dr = 999.;
         float tmp_dr  = 999.;
@@ -277,9 +278,9 @@ RVec<Float_t> coll1coll2DR(const RVec<Float_t> &coll1_eta, const RVec<Float_t> &
             tmp_dr  = deltaR(coll2_eta.at(ic2), coll2_phi.at(ic2), coll1_eta.at(ic1), coll1_phi.at(ic1));
             if (tmp_dr < dr) dr = tmp_dr;
         } 
-        coll1coll2DR[ic1] = dr;
+        resDR[ic1] = dr;
     }
-    return coll1coll2DR;
+    return resDR;
 }
 
 
@@ -552,22 +553,50 @@ RVec<Int_t> getMergedStandAloneMuon_MuonIdx(const RVec<Int_t> &MergedStandAloneM
 
 }
 
-RVec<Float_t> getMergedStandAloneMuon_MuonVar(const RVec<Int_t> &MergedStandAloneMuon_MuonIdx, 
-                                              const RVec<Float_t> &Muon_var,
-                                              const Float_t invalidValue = -99.9)
+
+// given SA muon get idx of matched track within DR and if more are found pick the one with highest pt
+RVec<Int_t> getMergedStandAloneMuon_highestPtTrackIdxWithinDR(const RVec<Float_t> &sa_eta, const RVec<Float_t> &sa_phi,
+                                                                const RVec<Float_t> &track_pt, const RVec<Float_t> &track_eta, const RVec<Float_t> &track_phi,
+                                                                const Float_t coneDR = 0.3)
 {
-    // MergedStandAloneMuon_MuonIdx an be created using getMergedStandAloneMuon_MuonIdx
-    // the assumption is that this function will be used only for MergedStandAloneMuon elements for whcih the corresponding Muon object exist
-    RVec<Float_t> res(MergedStandAloneMuon_MuonIdx.size(), invalidValue); // initialize to default value for invalid indices
+    RVec<Int_t> resIdx(sa_eta.size(), -1.);
+
+    for(unsigned int isa = 0; isa < sa_eta.size(); isa++){
+
+        float ptmax  = 0.0; // to search track with highest pt, as a start any track within DR will be accepted
+        int idx = -1;
+        
+        for (unsigned int it = 0; it < track_eta.size(); ++it){
+            if (deltaR(track_eta[it], track_phi[it], sa_eta[isa], sa_phi[isa]) < coneDR) {
+                if (track_pt[it] > ptmax) {
+                    ptmax = track_pt[it];
+                    resIdx[isa] = it;
+                }
+            }
+        }
+    }
+    
+    return resIdx;
+
+}
+
+
+RVec<Float_t> getMergedStandAloneMuon_matchedObjectVar(const RVec<Int_t> &MergedStandAloneMuon_matchedObjIdx, 
+                                                       const RVec<Float_t> &matchedObj_var,
+                                                       const Float_t invalidValue = -99.9)
+{
+    // MergedStandAloneMuon_matchedObjIdx can be created using getMergedStandAloneMuon_MuonIdx if the target collection is Muon,
+    // or getMergedStandAloneMuon_highestPtTrackIdxWithinDR if it is a track
+    // the assumption is that this function will be used only for MergedStandAloneMuon elements for which the corresponding matched object was already checked to exist
+    RVec<Float_t> res(MergedStandAloneMuon_matchedObjIdx.size(), invalidValue); // initialize to default value for invalid indices
     int index = -1;
-    for (unsigned int i =0; i < MergedStandAloneMuon_MuonIdx.size(); i++) {
-        index = MergedStandAloneMuon_MuonIdx[i];
-        if (index >= 0) res[i] = Muon_var[index];
+    for (unsigned int i =0; i < MergedStandAloneMuon_matchedObjIdx.size(); i++) {
+        index = MergedStandAloneMuon_matchedObjIdx[i];
+        if (index >= 0) res[i] = matchedObj_var[index];
     }
     return res;
 
 }
-
 
 
 float clipGenWeight(float genWeight)
@@ -576,6 +605,7 @@ float clipGenWeight(float genWeight)
   float sign = std::copysign(1., genWeight); // return 1 with the sign of genWeight
   return sign;
 }
+
 
 RVec<Bool_t> createTrues(int size)
 {
