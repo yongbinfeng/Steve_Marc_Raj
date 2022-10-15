@@ -66,6 +66,8 @@ if __name__ == "__main__":
                                 help="Don't require opposite charges between tag and probe for tracking")
     parser.add_argument('-s','--steps', default=None, nargs='*', type=int, choices=list(workingPoints.keys()),
                         help='Default runs all working points, but can choose only some if needed')
+    parser.add_argument('-x','--exclude', default=None, nargs='*', type=int, choices=list(workingPoints.keys()),
+                        help='Default runs all working points, but can choose to skip some if needed')
     parser.add_argument('-wpc','--workinPointsByCharge', default=["trigger"], nargs='*', type=str, choices=list(workingPoints.values()),
                         help='Default runs all working points, but can choose only some if needed')
     parser.add_argument('-exe', '--executable', default="Steve.py", type=str, choices=["Steve.py", "Steve_tracker.py"],
@@ -102,6 +104,8 @@ if __name__ == "__main__":
         isdata = 0 if xrun == "mc" else 1
         inpath = indir + (inputdir_data if isdata else inputdir_mc)
         for wp in workingPoints.keys():            
+            if args.exclude and wp in args.exclude:
+                continue
             if args.steps and wp not in args.steps:
                 continue
             charges = [-1, 1] if workingPoints[wp] in args.workinPointsByCharge else [0]

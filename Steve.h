@@ -76,6 +76,14 @@ double _get_vertexPileupWeight(const Float_t& vertexZ, const Float_t& nTrueInt, 
 
 ////=====================================================================================
 
+template <typename T>
+int printRvec(const RVec<T>  &vec, const int id = 0)
+{
+    std::cout << id << ": size = " << vec.size() << std::endl;
+    return 1;
+}
+
+////=====================================================================================
 
 float deltaPhi(float phi1, float phi2)
 {                                                        
@@ -203,6 +211,7 @@ RVec<std::pair<int,int>> CreateTPPair(const RVec<Int_t> &Tag_muons,
         }
 
     }
+    // std::cout << "Found " << TP_pairs.size() << " tag-probe pairs" << std::endl;
     return TP_pairs;
 
 }
@@ -430,6 +439,9 @@ RVec<T> getVariables(RVec<std::pair<int,int>> TPPairs,
         else if (option==2) variable = Cand_variable.at(TPPair.second);
         Variables[i] = variable;
     }
+    // if (TPPairs.size()) {
+    //     std::cout << "in getVariables(), size = " << Variables.size() << std::endl;
+    // }
     return Variables;
 }
 
@@ -491,6 +503,38 @@ RVec<Bool_t> isOS(RVec<std::pair<int,int>> TPPairs, RVec<Int_t> Muon_charge,
 }
 
 
+RVec<Int_t> Probe_isMatched(const RVec<std::pair<int,int>> &TPPairs, 
+                            const RVec<Int_t> &probe_extraIdx, 
+                            const RVec<Int_t> &target_extraIdx, 
+                            const RVec<Int_t> &target_passProbeCondition)
+{
+    RVec<Int_t> res(TPPairs.size(), 0);
+    // std::cout << "TPPairs.size() = " << TPPairs.size() << std::endl;
+    // std::cout << "probe_extraIdx.size() = " << probe_extraIdx.size() << std::endl;
+    // std::cout << "target_extraIdx.size() = " << target_extraIdx.size()  << std::endl;
+    // std::cout << "target_passProbeCondition.size() = " << target_passProbeCondition.size()  << std::endl;
+    for (unsigned int i = 0; i < TPPairs.size(); i++) {
+        for (unsigned int j = 0; j < target_extraIdx.size(); j++) {
+            // std::cout << "Probe id = " << TPPairs.at(i).second << std::endl;
+            if ( (probe_extraIdx[TPPairs.at(i).second] == target_extraIdx[j]) && target_passProbeCondition[j] ) {
+                //if ( probe_extraIdx[TPPairs.at(i).second] == target_extraIdx[j]) {
+                res[i] = 1;
+                // std::cout << "Target match with index = " << j << std::endl;
+                // std::cout << "Target extraIdx = " << target_extraIdx[j] << std::endl;
+                // std::cout << "Probe extraIdx = " << probe_extraIdx[TPPairs.at(i).second] << std::endl;
+                break;
+            }
+        }
+    }
+    // printRvec(res, 1);
+    // for (unsigned int i = 0; i < res.size(); i++) {
+    //     std::cout << i << "=" << res[i] << "   ";
+    // }
+    // std::cout << " " << std::endl;
+    return res;
+}
+
+// particular case of previous function, could be exchanged for that
 RVec<Int_t> Probe_isGlobal(const RVec<std::pair<int,int>> &TPPairs, 
                            const RVec<Int_t> &MergedStandAloneMuon_extraIdx, 
                            const RVec<Int_t> &Muon_standaloneExtraIdx, 
@@ -725,11 +769,4 @@ void saveHistogramsGen(ROOT::RDF::RResultPtr<THnT<double> > histo_pass, ROOT::RD
     delete histo_norm;
     f_out.Close();
   }
-}
-
-template <typename T>
-int printRvec(const RVec<T>  &vec, const int id = 0)
-{
-    std::cout << id << ": size = " << vec.size() << std::endl;
-    return 1;
 }

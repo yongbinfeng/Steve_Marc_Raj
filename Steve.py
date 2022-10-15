@@ -357,7 +357,7 @@ elif (args.efficiency == 2):
         d = d.Define("Muon_forTracking", "Muon_isGlobal && Muon_pt > 10 && Muon_standalonePt > 15 && selfDeltaR(Muon_eta, Muon_phi, Muon_standaloneEta, Muon_standalonePhi) < 0.3")
         # check Muon exists with proper criteria and matching extraIdx with the standalone muon 
         d = d.Define("passCondition_tracking",
-                     "Probe_isGlobal(TPPairs, MergedStandAloneMuon_extraIdx, Muon_standaloneExtraIdx, Muon_forTracking)")
+                     "Probe_isMatched(TPPairs, MergedStandAloneMuon_extraIdx, Muon_standaloneExtraIdx, Muon_forTracking)")
         #d = d.Define("passCondition_tracking",
         #             "Probe_isGlobal_checkExtraIdxTagInnerTrack(TPPairs, MergedStandAloneMuon_extraIdx, Muon_standaloneExtraIdx, Muon_forTracking, Tag_inExtraIdx, Muon_innerTrackExtraIdx)")
         
@@ -713,8 +713,10 @@ else:
 
     ## IMPORTANT: define only the specific condition to be passed, not with the && of previous steps (although in principle it is the same as long as that one is already applied)
     ##            also, these are based on the initial Muon collection, with no precooked filtering
-    d = d.Define("vetoMuons", "Muon_pt > 10 && abs(Muon_eta) < 2.4 && (Muon_isGlobal || Muon_isTracker) && Muon_looseId && abs(Muon_dxybs) < 0.05")
-    d = d.Define("passCondition_veto", "coll1coll2DR(Track_eta, Track_phi, Muon_eta[vetoMuons], Muon_phi[vetoMuons]) < 0.1")
+    d = d.Define("vetoMuons", "Muon_pt > 10 && abs(Muon_eta) < 2.4 && (Muon_isGlobal || Muon_isTracker) && Muon_innerTrackOriginalAlgo != 13 && Muon_innerTrackOriginalAlgo != 14 && Muon_looseId && abs(Muon_dxybs) < 0.05 && Muon_highPurity")
+    #d = d.Define("passCondition_veto", "coll1coll2DR(Track_eta, Track_phi, Muon_eta[vetoMuons], Muon_phi[vetoMuons]) < 0.1")
+    d = d.Define("passCondition_veto",
+                 "Probe_isMatched(TPPairs, Track_extraIdx, Muon_innerTrackExtraIdx, vetoMuons)")
 
     # define condition for passing probes
     d = d.Define("passCondition", "getVariables(TPPairs, passCondition_veto, 2)")
