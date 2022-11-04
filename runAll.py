@@ -70,8 +70,10 @@ if __name__ == "__main__":
                         help='Default runs all working points, but can choose to skip some if needed')
     parser.add_argument('-wpc','--workinPointsByCharge', default=["trigger"], nargs='*', type=str, choices=list(workingPoints.values()),
                         help='Default runs all working points, but can choose only some if needed')
-    parser.add_argument('-exe', '--executable', default="Steve.py", type=str, choices=["Steve.py", "Steve_tracker.py"],
-                        help='Choose script to run')
+    parser.add_argument("-trk", "--trackerMuons", action="store_true",
+                        help="Use tracker muons and a different executable")
+    #parser.add_argument('-exe', '--executable', default="Steve.py", type=str, choices=["Steve.py", "Steve_tracker.py"],
+    #                    help='Choose script to run')
     args = parser.parse_args()
 
     outdir = args.outdir
@@ -81,6 +83,8 @@ if __name__ == "__main__":
     if not indir.endswith("/"):
         indir += "/"
 
+    executable = "Steve_tracker.py" if args.trackerMuons else "Steve.py"
+        
     if not os.path.exists(outdir):
         print(f"Creating folder {outdir}")
         safeSystem(f"mkdir -p {outdir}", dryRun=False)
@@ -119,7 +123,7 @@ if __name__ == "__main__":
                 else:
                     outfile = f"{outdir}tnp_{step}_{xrun}_{postfix}.root"
                 outfiles.append(outfile)
-                cmd = f"python {args.executable} -i {inpath} -o {outfile} -d {isdata} -e {wp} -c {ch}"
+                cmd = f"python {executable} -i {inpath} -o {outfile} -d {isdata} -e {wp} -c {ch}"
                 if args.noVertexPileupWeight:
                     cmd += " -nw"
                 if args.noOppositeCharge:

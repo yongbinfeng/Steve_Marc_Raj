@@ -264,10 +264,17 @@ if(args.efficiency == 1):
         # condition for passing probes
         d = d.Define("trackerMuons", "Muon_pt > 10 && Muon_isTracker && Muon_innerTrackOriginalAlgo != 13 && Muon_innerTrackOriginalAlgo != 14 && Muon_highPurity")
         # check Muon exists with proper criteria and matching extraIdx with the track 
+
+        # # TEST 1 (it runs fine with coll1coll2DR instead of Probe_isMatched, but I don't know if the result would be the same)
+        # d = d.Define("passCondition_reco",
+        #              #"coll1coll2DR(Track_eta, Track_phi, Muon_eta[trackerMuons], Muon_phi[trackerMuons]) < 0.1")
+        #              "Probe_isMatched(TPPairs, Track_extraIdx, Muon_innerTrackExtraIdx, trackerMuons)")
+        # d = d.Define("passCondition", "getVariables(TPPairs, passCondition_reco, 2)")
+        # d = d.Define("failCondition", "!passCondition")
+        
         d = d.Define("passCondition_reco",
                      #"coll1coll2DR(Track_eta, Track_phi, Muon_eta[trackerMuons], Muon_phi[trackerMuons]) < 0.1")
                      "Probe_isMatched(TPPairs, Track_extraIdx, Muon_innerTrackExtraIdx, trackerMuons)")
-
         d = d.Define("passCondition", "getVariables(TPPairs, passCondition_reco, 2)")
         d = d.Define("failCondition", "!passCondition")
 

@@ -508,17 +508,20 @@ RVec<Int_t> Probe_isMatched(const RVec<std::pair<int,int>> &TPPairs,
                             const RVec<Int_t> &target_extraIdx, 
                             const RVec<Int_t> &target_passProbeCondition)
 {
-    RVec<Int_t> res(TPPairs.size(), 0);
+    //RVec<Int_t> res(TPPairs.size(), 0);
+    RVec<Int_t> res(probe_extraIdx.size(), 0);
     // std::cout << "TPPairs.size() = " << TPPairs.size() << std::endl;
     // std::cout << "probe_extraIdx.size() = " << probe_extraIdx.size() << std::endl;
     // std::cout << "target_extraIdx.size() = " << target_extraIdx.size()  << std::endl;
     // std::cout << "target_passProbeCondition.size() = " << target_passProbeCondition.size()  << std::endl;
     for (unsigned int i = 0; i < TPPairs.size(); i++) {
+        int probeId = TPPairs.at(i).second;
         for (unsigned int j = 0; j < target_extraIdx.size(); j++) {
             // std::cout << "Probe id = " << TPPairs.at(i).second << std::endl;
-            if ( (probe_extraIdx[TPPairs.at(i).second] == target_extraIdx[j]) && target_passProbeCondition[j] ) {
+            if ( (probe_extraIdx[probeId] == target_extraIdx[j]) && target_passProbeCondition[j] ) {
                 //if ( probe_extraIdx[TPPairs.at(i).second] == target_extraIdx[j]) {
-                res[i] = 1;
+                // res[i] = 1;
+                res[probeId] = 1;
                 // std::cout << "Target match with index = " << j << std::endl;
                 // std::cout << "Target extraIdx = " << target_extraIdx[j] << std::endl;
                 // std::cout << "Probe extraIdx = " << probe_extraIdx[TPPairs.at(i).second] << std::endl;
@@ -535,6 +538,7 @@ RVec<Int_t> Probe_isMatched(const RVec<std::pair<int,int>> &TPPairs,
 }
 
 // particular case of previous function, could be exchanged for that
+// actually this function is probably wrong since the returned size is not the one of the MergedStandAloneMuon_extraIdx collection
 RVec<Int_t> Probe_isGlobal(const RVec<std::pair<int,int>> &TPPairs, 
                            const RVec<Int_t> &MergedStandAloneMuon_extraIdx, 
                            const RVec<Int_t> &Muon_standaloneExtraIdx, 
