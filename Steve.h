@@ -426,6 +426,20 @@ RVec<Float_t> getTPmass(RVec<std::pair<int,int>> TPPairs,
     
 }
 
+RVec<Float_t> getTPabsDiffZ(RVec<std::pair<int,int>> TPPairs,
+                            RVec<Float_t> &tag_Z, RVec<Float_t> &probe_Z)
+{
+    RVec<Float_t> TPAbsDiffZ;
+    for (int i = 0; i < TPPairs.size(); i++){
+        std::pair<int,int> TPPair = TPPairs.at(i);
+        int tag_index = TPPair.first;
+        int probe_index = TPPair.second;        
+        TPAbsDiffZ.push_back( std::fabs(tag_Z[tag_index] - probe_Z[probe_index]) );
+    }
+    return TPAbsDiffZ;
+    
+}
+
 template <typename T>
 RVec<T> getVariables(RVec<std::pair<int,int>> TPPairs,
                      RVec<T>  &Cand_variable, 

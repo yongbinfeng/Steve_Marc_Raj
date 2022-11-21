@@ -231,6 +231,7 @@ d = d.Alias("Tag_pt",  "Muon_pt")
 d = d.Alias("Tag_eta", "Muon_eta")
 d = d.Alias("Tag_phi", "Muon_phi")
 d = d.Alias("Tag_charge", "Muon_charge")
+d = d.Alias("Tag_Z", "Muon_Z") # for tag-probe Z difference cut 
 d = d.Alias("Tag_inExtraIdx", "Muon_innerTrackExtraIdx")
 d = d.Alias("Tag_outExtraIdx", "Muon_standaloneExtraIdx")
 
@@ -271,12 +272,14 @@ if(args.efficiency == 1):
         d = d.Define("Probe_Tracks", f"Track_pt > 24 && abs(Track_eta) < 2.4 && Track_trackOriginalAlgo != 13 && Track_trackOriginalAlgo != 14 && isGenMatchedTrack && (Track_qualityMask & 4) {chargeCut}")
         # condition for passing probes
         # FIXME: add other criteria to the MergedStandAloneMuon to accept the matching? E.g. |eta| < 2.4 or pt > XX?
+        #d = d.Define("goodStandaloneMuon", "MergedStandAloneMuon_pt > 15 && MergedStandAloneMuon_numberOfValidHits > 0")
         d = d.Define("goodStandaloneMuon", "MergedStandAloneMuon_pt > 15")
         d = d.Define("passCondition_reco", "trackStandaloneDR(Track_eta, Track_phi, MergedStandAloneMuon_eta[goodStandaloneMuon], MergedStandAloneMuon_phi[goodStandaloneMuon]) < 0.3")
         
         d = d.Define("All_TPPairs", f"CreateTPPair(Tag_Muons, Probe_Tracks, {doOS}, Tag_charge, Track_charge, Tag_inExtraIdx, Track_extraIdx)")
         d = d.Define("All_TPmass", "getTPmass(All_TPPairs, Tag_pt, Tag_eta, Tag_phi, Track_pt, Track_eta, Track_phi)")
-
+        d = d.Define("All_absDiffZ", "getTPabsDiffZ(All_TPPairs, Tag_Z, Track_Z)")
+        
         # overriding previous pt binning
         #binning_pt = array('d',[24., 65.])
         #binning_pt = array('d',[24., 26., 30., 34., 38., 42., 46., 50., 55., 65.])
@@ -287,8 +290,9 @@ if(args.efficiency == 1):
         massHigh = 120
         binning_mass = array('d',[massLow + i for i in range(int(1+massHigh-massLow))])
         massCut = f"All_TPmass > {massLow} && All_TPmass < {massHigh}"
-        d = d.Define("TPPairs", f"All_TPPairs[{massCut}]")
-        d = d.Define("TPmass",  f"All_TPmass[{massCut}]")
+        ZdiffCut = "All_absDiffZ < 0.2"
+        d = d.Define("TPPairs", f"All_TPPairs[{massCut} && {ZdiffCut}]")
+        d = d.Define("TPmass",  f"All_TPmass[{massCut}  && {ZdiffCut}]")
         
         d = d.Define("Probe_pt",   "getVariables(TPPairs, Track_pt,  2)")
         d = d.Define("Probe_eta",  "getVariables(TPPairs, Track_eta, 2)")
@@ -331,7 +335,7 @@ elif (args.efficiency == 2):
 
         # All probes, standalone muons from MergedStandAloneMuon_XX    
         d = d.Define("Probe_MergedStandMuons","MergedStandAloneMuon_pt > 15 && abs(MergedStandAloneMuon_eta) < 2.4 && isGenMatchedMergedStandMuon")
-
+        #  && MergedStandAloneMuon_numberOfValidHits > 0
         d = d.Define("All_TPPairs", f"CreateTPPair(Tag_Muons, Probe_MergedStandMuons, {doOStracking}, Tag_charge, MergedStandAloneMuon_charge, Tag_outExtraIdx, MergedStandAloneMuon_extraIdx)")
         d = d.Define("All_TPmass","getTPmass(All_TPPairs, Tag_pt, Tag_eta, Tag_phi, MergedStandAloneMuon_pt, MergedStandAloneMuon_eta, MergedStandAloneMuon_phi)")
 
