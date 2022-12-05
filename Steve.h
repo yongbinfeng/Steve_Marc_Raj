@@ -114,71 +114,6 @@ RVec<Float_t> selfDeltaR(const RVec<Float_t>& eta1, const RVec<Float_t>& phi1, c
     return res;
 }
 
-RVec<Int_t> CreateProbes_Muon(RVec<Float_t> &Muon_pt, RVec<Float_t> &Muon_standalonePt,
-			      RVec<Float_t> &Muon_eta,RVec<Float_t> &Muon_phi, 
-			      RVec<Float_t> &Muon_standaloneEta, 
-			      RVec<Float_t> &Muon_standalonePhi, 
-			      RVec<Int_t> &Muon_charge, RVec<Bool_t> &Muon_mediumId, 
-			      RVec<Float_t> &Muon_dxybs,RVec<Bool_t> &Muon_isGlobal)
-{
-  RVec<Int_t> Probe_Muons;
-  for(int i=0;i<Muon_pt.size();i++){
-    if(Muon_pt.at(i) < 15 || Muon_standalonePt.at(i) < 15 || abs(Muon_eta.at(i)) > 2.4 || 
-       !Muon_isGlobal.at(i) || deltaR(Muon_eta.at(i),Muon_phi.at(i),
-	      			      Muon_standaloneEta.at(i),Muon_standalonePhi.at(i)) > 0.3) 
-      continue;
-    //Probe probe_muon;
-    //probe_muon.pt = Muon_pt.at(i);
-    //probe_muon.eta = Muon_eta.at(i);
-    //probe_muon.phi = Muon_phi.at(i);
-    //probe_muon.charge = Muon_charge.at(i);
-    //probe_muon.original_index = i;
-    Probe_Muons.push_back(i);
-  }
-  return Probe_Muons;
-}
-
-RVec<Int_t> CreateProbes_Track(RVec<Float_t> &Track_pt, RVec<Float_t> &Track_eta,
-                               RVec<Float_t> &Track_phi,RVec<Int_t> &Track_charge, 
-                               RVec<Int_t> &Track_trackOriginalAlgo)
-{
-
-  RVec<Int_t> Probe_Tracks;
-  for(int i=0;i<Track_pt.size();i++){
-    if(Track_pt.at(i) < 15. || abs(Track_eta.at(i)) > 2.4 || 
-       Track_trackOriginalAlgo.at(i) == 13 || Track_trackOriginalAlgo.at(i) == 14) continue;
-    //Probe probe_track;
-    //probe_track.pt = Track_pt.at(i);
-    //probe_track.eta = Track_eta.at(i);
-    //probe_track.phi = Track_phi.at(i);
-    //probe_track.charge = Track_charge.at(i);
-    //probe_track.original_index = i;
-    Probe_Tracks.push_back(i);
-  }
-  return Probe_Tracks;
-
-}
-
-RVec<Int_t> CreateProbes_MergedStandMuons(RVec<Float_t> &MergedStandAloneMuon_pt, 
-					  RVec<Float_t> &MergedStandAloneMuon_eta, 
-					  RVec<Float_t> &MergeStandAloneMuon_phi)
-{
-
-  RVec<Int_t> Probe_Stand;
-  for(int i=0;i<MergedStandAloneMuon_pt.size();i++){
-    if(MergedStandAloneMuon_pt.at(i) < 15.) continue;
-    if(MergedStandAloneMuon_eta.at(i) > 2.4) continue;
-    //Probe probe_track;
-    //probe_track.pt = Track_pt.at(i);
-    //probe_track.eta = Track_eta.at(i);
-    //probe_track.phi = Track_phi.at(i);
-    //probe_track.charge = Track_charge.at(i);
-    //probe_track.original_index = i;
-    Probe_Stand.push_back(i);
-  }
-  return Probe_Stand;
-
-}
 
 RVec<std::pair<int,int>> CreateTPPair(const RVec<Int_t> &Tag_muons, 
                                       const RVec<Int_t> &Probe_Candidates,
@@ -559,8 +494,8 @@ RVec<Int_t> Probe_isGlobal(const RVec<std::pair<int,int>> &TPPairs,
                            const RVec<Int_t> &Muon_passProbeCondition)
 {
     RVec<Int_t> isGlobal(TPPairs.size(), 0);
-    for (auto i=0U; i<TPPairs.size(); i++) {
-        for (unsigned int j=0; j < Muon_standaloneExtraIdx.size(); j++) {
+    for (unsigned int i = 0; i < TPPairs.size(); i++) {
+        for (unsigned int j = 0; j < Muon_standaloneExtraIdx.size(); j++) {
             if ( (MergedStandAloneMuon_extraIdx[TPPairs.at(i).second] == Muon_standaloneExtraIdx[j]) && Muon_passProbeCondition[j]) {
                 isGlobal[i] = 1;
                 break;
@@ -585,7 +520,7 @@ RVec<Int_t> Probe_isGlobal_checkExtraIdxTagInnerTrack(const RVec<std::pair<int,i
         int tag_index = TPPair.first;
         int probe_index = TPPair.second;
         int condition = 0;
-        for (unsigned int j=0; j < Muon_standaloneExtraIdx.size(); j++) {
+        for (unsigned int j = 0; j < Muon_standaloneExtraIdx.size(); j++) {
             if ( (MergedStandAloneMuon_extraIdx[probe_index] == Muon_standaloneExtraIdx[j]) && Muon_passProbeCondition[j]) {
                 // only accept cases where the matched global muon does not coincide with the tag 
                 if (Tag_innerTrackExtraIdx[tag_index] != Muon_innerTrackExtraIdx[j]) {
@@ -604,7 +539,7 @@ RVec<Int_t> getMergedStandAloneMuon_MuonIdx(const RVec<Int_t> &MergedStandAloneM
                                             const RVec<Int_t> &Muon_standaloneExtraIdx)
 {
     RVec<Int_t> res(MergedStandAloneMuon_extraIdx.size(), -1); // initialize to invalid index
-    for (unsigned int i =0; i < MergedStandAloneMuon_extraIdx.size(); i++) {
+    for (unsigned int i = 0; i < MergedStandAloneMuon_extraIdx.size(); i++) {
         for (unsigned int j = 0; j < Muon_standaloneExtraIdx.size(); j++) {
             if ( MergedStandAloneMuon_extraIdx[i] == Muon_standaloneExtraIdx[j] ) {
                 res[i] = j;
@@ -652,9 +587,28 @@ RVec<Float_t> getMergedStandAloneMuon_matchedObjectVar(const RVec<Int_t> &Merged
     // the assumption is that this function will be used only for MergedStandAloneMuon elements for which the corresponding matched object was already checked to exist
     RVec<Float_t> res(MergedStandAloneMuon_matchedObjIdx.size(), invalidValue); // initialize to default value for invalid indices
     int index = -1;
-    for (unsigned int i =0; i < MergedStandAloneMuon_matchedObjIdx.size(); i++) {
+    for (unsigned int i = 0; i < MergedStandAloneMuon_matchedObjIdx.size(); i++) {
         index = MergedStandAloneMuon_matchedObjIdx[i];
         if (index >= 0) res[i] = matchedObj_var[index];
+    }
+    return res;
+
+}
+
+// return a collection equipollent to global muons, containing the number of valid hits for the associated standalone track
+// similar to what getMergedStandAloneMuon_matchedObjectVar does for standalone muons
+template <typename T>
+RVec<T> getGlobalMuon_MergedStandAloneMuonVar(const RVec<Int_t> &Muon_standaloneExtraIdx,
+                                              const RVec<Int_t> &MergedStandAloneMuon_extraIdx,
+                                              const RVec<T> &MergedStandAloneMuon_variable)
+{
+    RVec<T> res(Muon_standaloneExtraIdx.size(), -1); // initialize to invalid index
+    for (unsigned int ig = 0; ig < Muon_standaloneExtraIdx.size(); ig++) {
+        for (unsigned int isa = 0; isa < MergedStandAloneMuon_extraIdx.size(); isa++) {
+            if ( Muon_standaloneExtraIdx[ig] == MergedStandAloneMuon_extraIdx[isa]) {
+                res[ig] = MergedStandAloneMuon_variable[isa];
+            }
+        }
     }
     return res;
 

@@ -12,7 +12,9 @@
 # because at the moment they are always the same, it is the file name that distinguishes the working points
 #
 # use -d to test the command, without running them automatically
-
+#
+# typical default command for all steps
+# python runAll.py -i input -o output --noOppositeChargeTracking
 
 import os, re, copy, math, array
 
