@@ -365,7 +365,7 @@ elif (args.efficiency == 2):
         #binning_pt = array('d',[15., 30., 45., 60., 80.])
         #binning_pt = array('d',[15., 25., 35., 45., 55., 65., 80.])
         #binning_pt = array('d',[24., 65.])
-        binning_pt = array('d',[25., 35., 45., 55., 65.])
+        binning_pt = array('d',[24., 35., 45., 55., 65.])
         #binning_pt = array('d',[(15.0 + i*1.0) for i in range(66) ])
         
         # Here we are using the muon variables to calulate the mass for the passing probes for tracking efficiency
