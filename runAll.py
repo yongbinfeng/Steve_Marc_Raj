@@ -71,7 +71,7 @@ if __name__ == "__main__":
     parser.add_argument('-x','--exclude', default=None, nargs='*', type=int, choices=list(workingPoints.keys()),
                         help='Default runs all working points, but can choose to skip some if needed')
     parser.add_argument('-wpc','--workinPointsByCharge', default=["trigger"], nargs='*', type=str, choices=list(workingPoints.values()),
-                        help='Default runs all working points, but can choose only some if needed')
+                        help='These steps will be made charge dependent')
     parser.add_argument("-trk", "--trackerMuons", action="store_true",
                         help="Use tracker muons and a different executable")
     #parser.add_argument('-exe', '--executable', default="Steve.py", type=str, choices=["Steve.py", "Steve_tracker.py"],
