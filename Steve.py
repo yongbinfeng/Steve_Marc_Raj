@@ -85,6 +85,9 @@ parser.add_argument("-tpt","--tagPt", help="Minimum pt to select tag muons",
 parser.add_argument("-c","--charge", help="Make efficiencies for a specific charge of the probe (-1/1 for positive negative, 0 for inclusive)",
                     type=int, default=0, choices=[-1, 0, 1])
 
+parser.add_argument("-p","--eventParity", help="Select events with given parity for statistical tests, -1/1 for odd/even events, 0 for all (default)",
+                    type=int, default=0, choices=[-1, 0, 1])
+
 parser.add_argument('-nw', '--noVertexPileupWeight', action='store_true', help='Do not use weights for vertex z position')
 #parser.add_argument("-vpw", "--vertexPileupWeight", action="store_true", help="Use weights for vertex z position versus pileup (only for MC)")
 
@@ -107,7 +110,7 @@ if args.isData & args.genLevelEfficiency:
 if args.isData & args.tnpGenLevel:
     raise RuntimeError('\'tnpGenLevel\' option not supported for data')
 
-if '.root' not in args.output_file:
+if not args.output_file.endswith(".root"):
     raise NameError('output_file name must end with \'.root\'')
 
 # create output folders if not existing
@@ -178,8 +181,11 @@ d = d.Filter("HLT_IsoMu24 || HLT_IsoTkMu24","HLT Cut")
 
 d = d.Filter("PV_npvsGood >= 1","NVtx Cut")
 
-# for tests
-#d = d.Filter("(event % 2) == 0")
+# for statistical tests (postfix to be added to file name)
+if args.eventParity < 0:
+    d = d.Filter("(event % 2) == 1") # odd
+elif args.eventParity > 0:
+    d = d.Filter("(event % 2) == 0") # even
 
 doOS = 0 if args.noOppositeCharge else 1
 doOStracking = 0 if args.noOppositeChargeTracking else doOS
@@ -242,7 +248,7 @@ if (args.genLevelEfficiency):
     # d = d.Define("goodgenpt", "GenMuonBare_pt") # the collection might have more than 2 elements here, but can be easily filtered (should be sorted too)
 
 # Open output file
-f_out = ROOT.TFile(args.output_file,"RECREATE")
+f_out = ROOT.TFile(args.output_file, "RECREATE")
     
 ## Tracks for reco efficiency
 if(args.efficiency == 1):

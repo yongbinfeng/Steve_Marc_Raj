@@ -74,6 +74,8 @@ if __name__ == "__main__":
                         help='These steps will be made charge dependent')
     parser.add_argument("-trk", "--trackerMuons", action="store_true",
                         help="Use tracker muons and a different executable")
+    parser.add_argument("-p","--eventParity", help="Select events with given parity for statistical tests, -1/1 for odd/even events, 0 for all (default)",
+                        type=int, nargs='+', default=[0], choices=[-1, 0, 1])
     #parser.add_argument('-exe', '--executable', default="Steve.py", type=str, choices=["Steve.py", "Steve_tracker.py"],
     #                    help='Choose script to run')
     args = parser.parse_args()
@@ -116,26 +118,30 @@ if __name__ == "__main__":
                 continue
             charges = [-1, 1] if workingPoints[wp] in args.workinPointsByCharge else [0]
             for ch in charges:
-                step = workingPoints[wp]
-                if ch:
-                    step += "plus" if ch == 1 else "minus"
-                if wp == 2 and args.noOppositeChargeTracking:
-                    postfixTracking = postfix.replace("oscharge1", "oscharge0")
-                    outfile = f"{outdir}tnp_{step}_{xrun}_{postfixTracking}.root"
-                else:
-                    outfile = f"{outdir}tnp_{step}_{xrun}_{postfix}.root"
-                outfiles.append(outfile)
-                cmd = f"python {executable} -i {inpath} -o {outfile} -d {isdata} -e {wp} -c {ch}"
-                if args.noVertexPileupWeight:
-                    cmd += " -nw"
-                if args.noOppositeCharge:
-                    cmd += " -nos"
-                if args.noOppositeChargeTracking and wp == 2:
-                    cmd += " --noOppositeChargeTracking "
-                print("")
-                print(f"Running for {xrun} and {step} efficiency")
-                safeSystem(cmd, dryRun=args.dryRun)
-                print("")
+                for parity in args.eventParity:
+                    step = workingPoints[wp]
+                    if ch:
+                        step += "plus" if ch == 1 else "minus"
+                    if parity:
+                        step += "odd" if parity == -1 else "even"
+                    if wp == 2 and args.noOppositeChargeTracking:
+                        postfixTracking = postfix.replace("oscharge1", "oscharge0")
+                        outfile = f"{outdir}tnp_{step}_{xrun}_{postfixTracking}.root"
+                    else:
+                        outfile = f"{outdir}tnp_{step}_{xrun}_{postfix}.root"
+                    outfiles.append(outfile)
+                    cmd = f"python {executable} -i {inpath} -o {outfile} -d {isdata} -e {wp} -c {ch} -p {parity}"
+                    if args.noVertexPileupWeight:
+                        cmd += " -nw"
+                    if args.noOppositeCharge:
+                        cmd += " -nos"
+                    if args.noOppositeChargeTracking and wp == 2:
+                        cmd += " --noOppositeChargeTracking "
+                    print("")
+                    eventParityText = "all" if parity == 0 else "odd" if parity < 0 else "even"
+                    print(f"Running for {xrun} and {step} efficiency ({eventParityText} events)")
+                    safeSystem(cmd, dryRun=args.dryRun)
+                    print("")
 
     ## FIXME: implement the merging if useful, but it depends on the name convention for histograms
     ##
