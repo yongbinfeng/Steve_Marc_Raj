@@ -577,15 +577,15 @@ RVec<Int_t> getMergedStandAloneMuon_highestPtTrackIdxWithinDR(const RVec<Float_t
 
 }
 
-
-RVec<Float_t> getMergedStandAloneMuon_matchedObjectVar(const RVec<Int_t> &MergedStandAloneMuon_matchedObjIdx, 
-                                                       const RVec<Float_t> &matchedObj_var,
-                                                       const Float_t invalidValue = -99.9)
+template <typename T>
+RVec<T> getMergedStandAloneMuon_matchedObjectVar(const RVec<Int_t> &MergedStandAloneMuon_matchedObjIdx, 
+                                                 const RVec<T> &matchedObj_var,
+                                                 const T invalidValue = -99)
 {
     // MergedStandAloneMuon_matchedObjIdx can be created using getMergedStandAloneMuon_MuonIdx if the target collection is Muon,
     // or getMergedStandAloneMuon_highestPtTrackIdxWithinDR if it is a track
     // the assumption is that this function will be used only for MergedStandAloneMuon elements for which the corresponding matched object was already checked to exist
-    RVec<Float_t> res(MergedStandAloneMuon_matchedObjIdx.size(), invalidValue); // initialize to default value for invalid indices
+    RVec<T> res(MergedStandAloneMuon_matchedObjIdx.size(), invalidValue); // initialize to default value for invalid indices
     int index = -1;
     for (unsigned int i = 0; i < MergedStandAloneMuon_matchedObjIdx.size(); i++) {
         index = MergedStandAloneMuon_matchedObjIdx[i];
@@ -595,7 +595,7 @@ RVec<Float_t> getMergedStandAloneMuon_matchedObjectVar(const RVec<Int_t> &Merged
 
 }
 
-// return a collection equipollent to global muons, containing the number of valid hits for the associated standalone track
+// return a collection equipollent to global muons, containing the variable for the associated standalone track
 // similar to what getMergedStandAloneMuon_matchedObjectVar does for standalone muons
 template <typename T>
 RVec<T> getGlobalMuon_MergedStandAloneMuonVar(const RVec<Int_t> &Muon_standaloneExtraIdx,
