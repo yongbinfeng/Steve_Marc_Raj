@@ -76,6 +76,12 @@ if __name__ == "__main__":
                         help="Use tracker muons and a different executable")
     parser.add_argument("-p","--eventParity", help="Select events with given parity for statistical tests, -1/1 for odd/even events, 0 for all (default)",
                         type=int, nargs='+', default=[0], choices=[-1, 0, 1])
+    parser.add_argument("-tpt","--tagPt", help="Minimum pt to select tag muons",
+                        type=float, default=25.)
+    parser.add_argument("-tiso","--tagIso", help="Isolation threshold to select tag muons",
+                        type=float, default=0.15)
+    parser.add_argument(        "--standaloneValidHits", help="Minimum number of valid hits for the standalone track (>= this value)",
+                        type=int, default=1)
     #parser.add_argument('-exe', '--executable', default="Steve.py", type=str, choices=["Steve.py", "Steve_tracker.py"],
     #                    help='Choose script to run')
     args = parser.parse_args()
@@ -107,6 +113,8 @@ if __name__ == "__main__":
     postfix = "vertexWeights{v}_oscharge{c}".format(v="0" if args.noVertexPileupWeight  else "1",
                                                     c="0" if args.noOppositeCharge      else "1")
 
+    commonOption = f" --tagPt {args.tagPt} --tagIso {args.tagIso} --standaloneValidHits {args.standaloneValidHits}"
+
     for xrun in toRun:
 
         isdata = 0 if xrun == "mc" else 1
@@ -131,6 +139,7 @@ if __name__ == "__main__":
                         outfile = f"{outdir}tnp_{step}_{xrun}_{postfix}.root"
                     outfiles.append(outfile)
                     cmd = f"python {executable} -i {inpath} -o {outfile} -d {isdata} -e {wp} -c {ch} -p {parity}"
+                    cmd += commonOption
                     if args.noVertexPileupWeight:
                         cmd += " -nw"
                     if args.noOppositeCharge:

@@ -82,6 +82,12 @@ parser.add_argument("-d","--isData", help="Pass 0 for MC, 1 for Data, default is
 parser.add_argument("-tpt","--tagPt", help="Minimum pt to select tag muons",
                     type=float, default=25.)
 
+parser.add_argument("-tiso","--tagIso", help="Isolation threshold to select tag muons",
+                    type=float, default=0.15)
+
+parser.add_argument(        "--standaloneValidHits", help="Minimum number of valid hits for the standalone track (>= this value)",
+                    type=int, default=1)
+
 parser.add_argument("-c","--charge", help="Make efficiencies for a specific charge of the probe (-1/1 for positive negative, 0 for inclusive)",
                     type=int, default=0, choices=[-1, 0, 1])
 
@@ -136,7 +142,7 @@ for root, dirnames, filenames in os.walk(args.input_path):
 
 if args.charge and args.efficiency in [2]:
     print("")
-    print("   WARNING: charge splitting not implemented for tracking efficiency. I will derive charge inclusive efficiencies")
+    print("   WARNING: charge splitting for tracking efficiency is implemented using the tag muon (with the other charge)")
     print("")
 
 
@@ -176,7 +182,7 @@ GENXBINS.push_back(ROOT.std.vector('double')(binning_eta))
 GENXBINS.push_back(ROOT.std.vector('double')(binning_charge))
 GENXBINS.push_back(ROOT.std.vector('double')(binning_u))
 
-minStandaloneNumberOfValidHits = 10
+minStandaloneNumberOfValidHits = args.standaloneValidHits
 
 ##General Cuts
 d = d.Filter("HLT_IsoMu24 || HLT_IsoTkMu24","HLT Cut")
@@ -241,7 +247,7 @@ TagAntiChargeCut = ""
 if args.efficiency == 2 and args.charge:
     TagAntiChargeCut = " && Tag_charge < 0" if args.charge > 0 else " && Tag_charge > 0" # note that we swap charge 
 # now define the tag muon (Muon_isGlobal might not be necessary, but shouldn't hurt really)
-d = d.Define("Tag_Muons", f"Muon_pt > {args.tagPt} && abs(Muon_eta) < 2.4 && Muon_pfRelIso04_all < 0.15 && abs(Muon_dxybs) < 0.05 && Muon_mediumId && Muon_isGlobal && isTriggeredMuon && isGenMatchedMuon {TagAntiChargeCut}")
+d = d.Define("Tag_Muons", f"Muon_pt > {args.tagPt} && abs(Muon_eta) < 2.4 && Muon_pfRelIso04_all < {args.tagIso} && abs(Muon_dxybs) < 0.05 && Muon_mediumId && Muon_isGlobal && isTriggeredMuon && isGenMatchedMuon {TagAntiChargeCut}")
 
 if (args.genLevelEfficiency):
     d = d.Define("zero","0").Define("one","1") # is this really needed? Can't we just pass 1 or 0 in the functions where we need it?
