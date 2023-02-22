@@ -226,7 +226,7 @@ else:
     d = d.Define("isGenMatchedMuon", "hasGenMatch(GenMuonBare_eta, GenMuonBare_phi, Muon_eta, Muon_phi)")
 
 ## Define tags as trigger matched and gen matched (gen match can be removed with an option in case)
-d = d.Define("Tag_Muons", f"Muon_pt > {args.tagPt} && abs(Muon_eta) < 2.4 && Muon_pfRelIso04_all < 0.15 && abs(Muon_dxybs) < 0.05 && Muon_mediumId && Muon_isGlobal && isTriggeredMuon && isGenMatchedMuon")
+#
 # just for utility
 d = d.Alias("Tag_pt",  "Muon_pt")
 d = d.Alias("Tag_eta", "Muon_eta")
@@ -235,6 +235,13 @@ d = d.Alias("Tag_charge", "Muon_charge")
 d = d.Alias("Tag_Z", "Muon_Z") # for tag-probe Z difference cut 
 d = d.Alias("Tag_inExtraIdx", "Muon_innerTrackExtraIdx")
 d = d.Alias("Tag_outExtraIdx", "Muon_standaloneExtraIdx")
+# for tracking we may want to test efficiencies by charge, but in that case we enforce the (other) charge on the tag
+# under the assumption that tag and probe muons have opposite charge (but we still don't force opposite charge explicitly)
+TagAntiChargeCut = ""
+if args.efficiency == 2 and args.charge:
+    TagAntiChargeCut = " && Tag_charge < 0" if args.charge > 0 else " && Tag_charge > 0" # note that we swap charge 
+# now define the tag muon (Muon_isGlobal might not be necessary, but shouldn't hurt really)
+d = d.Define("Tag_Muons", f"Muon_pt > {args.tagPt} && abs(Muon_eta) < 2.4 && Muon_pfRelIso04_all < 0.15 && abs(Muon_dxybs) < 0.05 && Muon_mediumId && Muon_isGlobal && isTriggeredMuon && isGenMatchedMuon {TagAntiChargeCut}")
 
 if (args.genLevelEfficiency):
     d = d.Define("zero","0").Define("one","1") # is this really needed? Can't we just pass 1 or 0 in the functions where we need it?
@@ -358,7 +365,8 @@ elif (args.efficiency == 2):
         ## && globalMuon_standaloneNvalidHits >= {minStandaloneNumberOfValidHits}
         # 
         # check Muon exists with proper criteria and matching extraIdx with the standalone muon 
-        # Note: no need to enforce the number of valid hits of the standalone track for the global muon, since it is already embedded in the denominator
+        # Note: no need to enforce the number of valid hits of the standalone track for the global muon,
+        ##      since it is already embedded in the denominator
         ##      and the matching already ensures it is propagated to the numerator
         d = d.Define("passCondition_tracking",
                      "Probe_isMatched(TPPairs, MergedStandAloneMuon_extraIdx, Muon_standaloneExtraIdx, Muon_forTracking)")
