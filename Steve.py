@@ -69,12 +69,12 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument("-e","--efficiency",
 		    help="1 for reco, 2 for \"tracking\", 3 for idip, 4 for trigger, 5 for isolation, 6 for isolation without trigger, 7 for veto",
-                    type=int, choices=range(1,8))
+                    type=int, choices=range(1,8), required=True)
 parser.add_argument("-i","--input_path", help="path of the input root files",
-                    type=str)
+                    type=str, required=True)
 
 parser.add_argument("-o","--output_file", help="name of the output root file",
-                    type=str)
+                    type=str, required=True)
 
 parser.add_argument("-d","--isData", help="Pass 0 for MC, 1 for Data, default is 0",
                     type=int, default=0)
@@ -134,10 +134,15 @@ else:
 
 files=[]
 
-for root, dirnames, filenames in os.walk(args.input_path):
-     for filename in filenames:
-          if '.root' in filename:
-              files.append(os.path.join(root, filename))
+#for root, dirnames, filenames in os.walk(args.input_path):
+#     for filename in filenames:
+#          if '.root' in filename:
+#              files.append(os.path.join(root, filename))
+
+# read the list of inputs from the text file
+with open(args.input_path) as f:
+    for line in f:
+        files.append(line.strip())
 
 
 if args.charge and args.efficiency in [2]:
@@ -149,7 +154,8 @@ if args.charge and args.efficiency in [2]:
 #print(files)
 filenames = ROOT.std.vector('string')()
 
-for name in files: filenames.push_back(name)
+for name in files: 
+    filenames.push_back("root://eoscms.cern.ch/"+name)
 
 d = ROOT.RDataFrame("Events",filenames )
 
@@ -185,7 +191,8 @@ GENXBINS.push_back(ROOT.std.vector('double')(binning_u))
 minStandaloneNumberOfValidHits = args.standaloneValidHits
 
 ##General Cuts
-d = d.Filter("HLT_IsoMu24 || HLT_IsoTkMu24","HLT Cut")
+#d = d.Filter("HLT_IsoMu24 || HLT_IsoTkMu24","HLT Cut")
+d = d.Filter("HLT_Mu17")
 
 d = d.Filter("PV_npvsGood >= 1","NVtx Cut")
 
@@ -199,7 +206,7 @@ doOS = 0 if args.noOppositeCharge else 1
 doOStracking = 0 if args.noOppositeChargeTracking else doOS
 
 if (args.isData == 1):
-    jsonhelper = make_jsonhelper("Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt")
+    jsonhelper = make_jsonhelper("Cert_306896-307082_13TeV_PromptReco_Collisions17_JSON_LowPU_lowPU.txt")
     d = d.Filter(jsonhelper,["run","luminosityBlock"],"jsonfilter")
 
 ## Weights
@@ -238,7 +245,7 @@ d = d.Alias("Tag_pt",  "Muon_pt")
 d = d.Alias("Tag_eta", "Muon_eta")
 d = d.Alias("Tag_phi", "Muon_phi")
 d = d.Alias("Tag_charge", "Muon_charge")
-d = d.Alias("Tag_Z", "Muon_Z") # for tag-probe Z difference cut 
+#d = d.Alias("Tag_Z", "Muon_Z") # for tag-probe Z difference cut 
 d = d.Alias("Tag_inExtraIdx", "Muon_innerTrackExtraIdx")
 d = d.Alias("Tag_outExtraIdx", "Muon_standaloneExtraIdx")
 # for tracking we may want to test efficiencies by charge, but in that case we enforce the (other) charge on the tag
@@ -290,7 +297,7 @@ if(args.efficiency == 1):
         
         d = d.Define("All_TPPairs", f"CreateTPPair(Tag_Muons, Probe_Tracks, {doOS}, Tag_charge, Track_charge, Tag_inExtraIdx, Track_extraIdx)")
         d = d.Define("All_TPmass", "getTPmass(All_TPPairs, Tag_pt, Tag_eta, Tag_phi, Track_pt, Track_eta, Track_phi)")
-        d = d.Define("All_absDiffZ", "getTPabsDiffZ(All_TPPairs, Tag_Z, Track_Z)")
+        #d = d.Define("All_absDiffZ", "getTPabsDiffZ(All_TPPairs, Tag_Z, Track_Z)")
         
         # overriding previous pt binning
         #binning_pt = array('d',[24., 65.])
@@ -302,7 +309,8 @@ if(args.efficiency == 1):
         massHigh = 120
         binning_mass = array('d',[massLow + i for i in range(int(1+massHigh-massLow))])
         massCut = f"All_TPmass > {massLow} && All_TPmass < {massHigh}"
-        ZdiffCut = "All_absDiffZ < 0.2"
+        #ZdiffCut = "All_absDiffZ < 0.2"
+        ZdiffCut = "1"
         d = d.Define("TPPairs", f"All_TPPairs[{massCut} && {ZdiffCut}]")
         d = d.Define("TPmass",  f"All_TPmass[{massCut}  && {ZdiffCut}]")
         
