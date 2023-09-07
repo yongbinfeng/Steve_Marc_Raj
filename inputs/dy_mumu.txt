@@ -1,1 +1,0 @@
-/eos/cms/store/group/cmst3/group/wmass/LowPU/NanoAOD_v5/DYJetsToMuMu_M-50_H2ErratumFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/NanoLowPUMCTagAndProbeLowPU_0/230811_051748/0000/test_96.root

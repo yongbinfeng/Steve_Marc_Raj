@@ -106,6 +106,8 @@ parser.add_argument("-gen","--genLevelEfficiency", action="store_true", help="Co
 
 parser.add_argument("-tpg","--tnpGenLevel", action="store_true", help="Compute tag-and-probe efficiencies for MC as a function of postVFP gen variables")
 
+parser.add_argument("--lowPU", "--lowPU", action="store_true", help="Use low PU runs")
+
 args = parser.parse_args()
 tstart = time.time()
 cpustrat = time.process_time()
@@ -160,7 +162,9 @@ for name in files:
 d = ROOT.RDataFrame("Events",filenames )
 
 binning_pt = array('d',[24., 26., 28., 30., 32., 34., 36., 38., 40., 42., 44., 47., 50., 55., 60., 65.])
+binning_pt = array('d', [22, 40.0, 50, 13000])
 binning_eta = array('d',[round(-2.4 + i*0.1,2) for i in range(49)])
+binning_eta = array('d', [-2.4, -2.1, -1.8, -1.5, -1.2, -0.9, -0.6, -0.3, -0.15, 0.15, 0.3, 0.6, 0.9, 1.2, 1.5, 1.8, 2.1, 2.4])
 binning_mass = array('d',[50 + i for i in range(81)])
 binning_charge = array('d',[-1.5,0,1.5])
 binning_u = array('d',[-100 + i*2 for i in range(101)])
@@ -190,11 +194,23 @@ GENXBINS.push_back(ROOT.std.vector('double')(binning_u))
 
 minStandaloneNumberOfValidHits = args.standaloneValidHits
 
+nevts = d.Count()
+print(f"Number of events Line 194 : {nevts.GetValue()}")
+
 ##General Cuts
 #d = d.Filter("HLT_IsoMu24 || HLT_IsoTkMu24","HLT Cut")
-d = d.Filter("HLT_Mu17")
+if not args.isData:
+    d = d.Filter("HLT_Mu17")
+else:
+    d = d.Filter("HLT_HIMu17")
+
+nevts = d.Count()
+print(f"Number of events after trigger: {nevts.GetValue()}")
 
 d = d.Filter("PV_npvsGood >= 1","NVtx Cut")
+
+nevts = d.Count()
+print(f"Number of events after PV: {nevts.GetValue()}")
 
 # for statistical tests (postfix to be added to file name)
 if args.eventParity < 0:
@@ -202,12 +218,21 @@ if args.eventParity < 0:
 elif args.eventParity > 0:
     d = d.Filter("(event % 2) == 0") # even
 
+nevts = d.Count()
+print(f"Number of events after parity: {nevts.GetValue()}")
+
 doOS = 0 if args.noOppositeCharge else 1
 doOStracking = 0 if args.noOppositeChargeTracking else doOS
 
 if (args.isData == 1):
-    jsonhelper = make_jsonhelper("Cert_306896-307082_13TeV_PromptReco_Collisions17_JSON_LowPU_lowPU.txt")
+    if args.lowPU:
+        jsonhelper = make_jsonhelper("Cert_306896-307082_13TeV_PromptReco_Collisions17_JSON_LowPU_lowPU.txt")
+    else:
+        jsonhelper = make_jsonhelper("Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt")
     d = d.Filter(jsonhelper,["run","luminosityBlock"],"jsonfilter")
+    
+nevts = d.Count()
+print(f"Number of events after data selection: {nevts.GetValue()}")
 
 ## Weights
 
@@ -226,7 +251,8 @@ else:
     d = d.Define("weight", "gen_weight*pu_weight*vertex_weight")
     
 ## For Tag Muons
-d = d.Define("isTriggeredMuon","hasTriggerMatch(Muon_eta, Muon_phi, TrigObj_id, TrigObj_filterBits, TrigObj_eta, TrigObj_phi)")
+isLowPU = 1 if args.lowPU else 0
+d = d.Define("isTriggeredMuon",f"hasTriggerMatch(Muon_eta, Muon_phi, TrigObj_id, TrigObj_filterBits, TrigObj_eta, TrigObj_phi,{isLowPU})")
 
 if(args.isData == 1):
     d = d.Define("isGenMatchedMuon","createTrues(nMuon)")
@@ -271,7 +297,10 @@ if (args.genLevelEfficiency):
 
 # Open output file
 f_out = ROOT.TFile(args.output_file, "RECREATE")
-    
+
+nevts = d.Count()
+print(f"Number of events after opening outputs: {nevts.GetValue()}")
+
 ## Tracks for reco efficiency
 if(args.efficiency == 1):
     if not (args.genLevelEfficiency):
@@ -302,7 +331,7 @@ if(args.efficiency == 1):
         # overriding previous pt binning
         #binning_pt = array('d',[24., 65.])
         #binning_pt = array('d',[24., 26., 30., 34., 38., 42., 46., 50., 55., 65.])
-        binning_pt = array('d',[24., 26., 30., 34., 38., 42., 46., 50., 55., 60., 65.])
+        #binning_pt = array('d',[24., 26., 30., 34., 38., 42., 46., 50., 55., 60., 65.])
         ## binning is currently 50,130 GeV, but it is overridden below 
         # also for mass
         massLow  =  60
@@ -395,7 +424,7 @@ elif (args.efficiency == 2):
         #binning_pt = array('d',[15., 30., 45., 60., 80.])
         #binning_pt = array('d',[15., 25., 35., 45., 55., 65., 80.])
         #binning_pt = array('d',[24., 65.])
-        binning_pt = array('d',[24., 35., 45., 55., 65.])
+        #binning_pt = array('d',[24., 35., 45., 55., 65.])
         #binning_pt = array('d',[(15.0 + i*1.0) for i in range(66) ])
         
         # Here we are using the muon variables to calulate the mass for the passing probes for tracking efficiency
@@ -728,7 +757,7 @@ else:
 
     # overriding previous pt binning
     ## FIXME: to optimize
-    binning_pt = array('d',[(10. + 5.*i) for i in range(12)]) # from MC truth the efficiency of the veto is flat versus pt from 20 to 65 GeV
+    #binning_pt = array('d',[(10. + 5.*i) for i in range(12)]) # from MC truth the efficiency of the veto is flat versus pt from 20 to 65 GeV
 
     d = d.Define("TPPairs", f"All_TPPairs[{massCut}]")
     # call it BasicTPmass so it can be filtered later without using Redefine, but an appropriate Define
