@@ -8,9 +8,16 @@ Main code - Steve.py
 
 Steve.h contains the functions which are needed to create the TP pairs
 
-To run - use the singularity shell of Josh - "singularity run /cvmfs/unpacked.cern.ch/gitlab-registry.cern.ch/bendavid/cmswmassdocker/wmassdevrolling\:latest"
+To run - use the singularity shell of Josh - 
+```
+singularity run /cvmfs/unpacked.cern.ch/gitlab-registry.cern.ch/bendavid/cmswmassdocker/wmassdevrolling\:latest
+```
 
-Enable access to the EOS - "kinit USERNAME@CERN.CH" for accessing the eos files
+Enable access to the EOS - 
+```
+kinit USERNAME@CERN.CH
+```
+for accessing the eos files
 
 then "python Steve.py -h". E.g.,
 
