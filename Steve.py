@@ -108,6 +108,8 @@ parser.add_argument("-tpg","--tnpGenLevel", action="store_true", help="Compute t
 
 parser.add_argument("--lowPU", "--lowPU", action="store_true", help="Use low PU runs")
 
+parser.add_argument('--electrons', action='store_true', help='Use electrons instead of muons')
+
 args = parser.parse_args()
 tstart = time.time()
 cpustrat = time.process_time()
@@ -120,6 +122,9 @@ if args.isData & args.tnpGenLevel:
 
 if not args.output_file.endswith(".root"):
     raise NameError('output_file name must end with \'.root\'')
+
+if args.electrons and not args.lowPU:
+    raise RuntimeError('Electron efficiencies are only supported for low PU runs')
 
 # create output folders if not existing
 outdir = os.path.dirname(os.path.abspath(args.output_file))
@@ -199,10 +204,16 @@ print(f"Number of events Line 194 : {nevts.GetValue()}")
 
 ##General Cuts
 #d = d.Filter("HLT_IsoMu24 || HLT_IsoTkMu24","HLT Cut")
-if not args.isData:
-    d = d.Filter("HLT_Mu17")
+if not args.electrons:
+    if not args.isData:
+        d = d.Filter("HLT_Mu17")
+    else:
+        d = d.Filter("HLT_HIMu17")
 else:
-    d = d.Filter("HLT_HIMu17")
+    if not args.isData:
+        d = d.Filter("HLT_Ele20_WPLoose_Gsf")
+    else:
+        d = d.Filter("HLT_HIEle20_WPLoose_Gsf")
 
 nevts = d.Count()
 print(f"Number of events after trigger: {nevts.GetValue()}")
@@ -250,37 +261,41 @@ else:
     d = d.Define("pu_weight", "puw_2016(Pileup_nTrueInt,2)") # 2 is for postVFP
     d = d.Define("weight", "gen_weight*pu_weight*vertex_weight")
     
-## For Tag Muons
+lepton = "Muon" if not args.electrons else "Electron"
+leptonid = "13" if not args.electrons else "11"
 isLowPU = 1 if args.lowPU else 0
-d = d.Define("isTriggeredMuon",f"hasTriggerMatch(Muon_eta, Muon_phi, TrigObj_id, TrigObj_filterBits, TrigObj_eta, TrigObj_phi,{isLowPU})")
+
+# for tag leptons
+d = d.Define(f"isTriggeredLepton", f"has{lepton}TriggerMatch({lepton}_eta, {lepton}_phi, TrigObj_id, TrigObj_filterBits, TrigObj_eta, TrigObj_phi,{isLowPU})")
 
 if(args.isData == 1):
-    d = d.Define("isGenMatchedMuon","createTrues(nMuon)")
+    d = d.Define(f"isGenMatchedLepton",f"createTrues(n{lepton})")
 else: 
-    d = d.Define("GenMuonBare", "GenPart_status == 1 && (GenPart_statusFlags & 1) && abs(GenPart_pdgId) == 13")
-    d = d.Define("GenMuonBare_pt", "GenPart_pt[GenMuonBare]")
-    d = d.Define("GenMuonBare_eta", "GenPart_eta[GenMuonBare]")
-    d = d.Define("GenMuonBare_phi", "GenPart_phi[GenMuonBare]")
-    d = d.Define("GenMuonBare_pdgId", "GenPart_pdgId[GenMuonBare]")
-    d = d.Define("isGenMatchedMuon", "hasGenMatch(GenMuonBare_eta, GenMuonBare_phi, Muon_eta, Muon_phi)")
+    d = d.Define(f"Gen{lepton}Bare", f"GenPart_status == 1 && (GenPart_statusFlags & 1) && abs(GenPart_pdgId) == {leptonid}")
+    d = d.Define(f"Gen{lepton}Bare_pt",    f"GenPart_pt   [Gen{lepton}Bare]")
+    d = d.Define(f"Gen{lepton}Bare_eta",   f"GenPart_eta  [Gen{lepton}Bare]")
+    d = d.Define(f"Gen{lepton}Bare_phi",   f"GenPart_phi  [Gen{lepton}Bare]")
+    d = d.Define(f"Gen{lepton}Bare_pdgId", f"GenPart_pdgId[Gen{lepton}Bare]")
+    d = d.Define(f"isGenMatchedLepton", f"hasGenMatch(Gen{lepton}Bare_eta, Gen{lepton}Bare_phi, {lepton}_eta, {lepton}_phi)")
 
 ## Define tags as trigger matched and gen matched (gen match can be removed with an option in case)
 #
 # just for utility
-d = d.Alias("Tag_pt",  "Muon_pt")
-d = d.Alias("Tag_eta", "Muon_eta")
-d = d.Alias("Tag_phi", "Muon_phi")
-d = d.Alias("Tag_charge", "Muon_charge")
+d = d.Alias("Tag_pt",     f"{lepton}_pt")
+d = d.Alias("Tag_eta",    f"{lepton}_eta")
+d = d.Alias("Tag_phi",    f"{lepton}_phi")
+d = d.Alias("Tag_charge", f"{lepton}_charge")
 #d = d.Alias("Tag_Z", "Muon_Z") # for tag-probe Z difference cut 
-d = d.Alias("Tag_inExtraIdx", "Muon_innerTrackExtraIdx")
-d = d.Alias("Tag_outExtraIdx", "Muon_standaloneExtraIdx")
+if not args.electrons:
+    d = d.Alias("Tag_inExtraIdx", "Muon_innerTrackExtraIdx")
+    d = d.Alias("Tag_outExtraIdx", "Muon_standaloneExtraIdx")
 # for tracking we may want to test efficiencies by charge, but in that case we enforce the (other) charge on the tag
 # under the assumption that tag and probe muons have opposite charge (but we still don't force opposite charge explicitly)
 TagAntiChargeCut = ""
 if args.efficiency == 2 and args.charge:
     TagAntiChargeCut = " && Tag_charge < 0" if args.charge > 0 else " && Tag_charge > 0" # note that we swap charge 
 # now define the tag muon (Muon_isGlobal might not be necessary, but shouldn't hurt really)
-d = d.Define("Tag_Muons", f"Muon_pt > {args.tagPt} && abs(Muon_eta) < 2.4 && Muon_pfRelIso04_all < {args.tagIso} && abs(Muon_dxybs) < 0.05 && Muon_mediumId && Muon_isGlobal && isTriggeredMuon && isGenMatchedMuon {TagAntiChargeCut}")
+d = d.Define("Tag_Muons", f"Muon_pt > {args.tagPt} && abs(Muon_eta) < 2.4 && Muon_pfRelIso04_all < {args.tagIso} && abs(Muon_dxybs) < 0.05 && Muon_mediumId && Muon_isGlobal && isTriggeredLepton && isGenMatchedLepton {TagAntiChargeCut}")
 
 if (args.genLevelEfficiency):
     d = d.Define("zero","0").Define("one","1") # is this really needed? Can't we just pass 1 or 0 in the functions where we need it?
@@ -477,7 +492,7 @@ elif args.efficiency != 7:
         chargeCut = f" && Muon_charge {sign} 0"
         
     d = d.Define("globalMuon_standaloneNvalidHits", "getGlobalMuon_MergedStandAloneMuonVar(Muon_standaloneExtraIdx, MergedStandAloneMuon_extraIdx, MergedStandAloneMuon_numberOfValidHits)")
-    d = d.Define("BasicProbe_Muons", f"Muon_isGlobal && Muon_pt > 24 && Muon_standalonePt > 15 && abs(Muon_eta) < 2.4 && selfDeltaR(Muon_eta, Muon_phi, Muon_standaloneEta, Muon_standalonePhi) < 0.3 && Muon_highPurity && isGenMatchedMuon {chargeCut} && globalMuon_standaloneNvalidHits >= {minStandaloneNumberOfValidHits}")
+    d = d.Define("BasicProbe_Muons", f"Muon_isGlobal && Muon_pt > 24 && Muon_standalonePt > 15 && abs(Muon_eta) < 2.4 && selfDeltaR(Muon_eta, Muon_phi, Muon_standaloneEta, Muon_standalonePhi) < 0.3 && Muon_highPurity && isGenMatchedLepton {chargeCut} && globalMuon_standaloneNvalidHits >= {minStandaloneNumberOfValidHits}")
     # add MergedStandAloneMuon_numberOfValidHits > 0 matching the global muon to its standalone one 
     d = d.Define("All_TPPairs", f"CreateTPPair(Tag_Muons, BasicProbe_Muons, {doOS}, Tag_charge, Muon_charge, Tag_inExtraIdx, Muon_innerTrackExtraIdx, 1)") # these are all Muon_XX, so might just exclude same index in the loop
     d = d.Define("All_TPmass","getTPmass(All_TPPairs, Tag_pt, Tag_eta, Tag_phi, Muon_pt, Muon_eta, Muon_phi)")
@@ -506,7 +521,7 @@ elif args.efficiency != 7:
     ## IMPORTANT: define only the specific condition to be passed, not with the && of previous steps (although in principle it is the same as long as that one is already applied)
     ##            also, these are based on the initial Muon collection, with no precooked filtering
     d = d.Define("passCondition_IDIP", "Muon_mediumId && abs(Muon_dxybs) < 0.05")
-    d = d.Define("passCondition_Trig", "isTriggeredMuon")
+    d = d.Define("passCondition_Trig", "isTriggeredLepton")
     d = d.Define("passCondition_Iso",  "Muon_pfRelIso04_all < 0.15")
     #d = d.Define("passCondition_Iso",  "Muon_pfRelIso03_all < 0.10")
     #d = d.Define("passCondition_Iso",  "Muon_pfRelIso03_chg < 0.05")
@@ -600,7 +615,7 @@ elif args.efficiency != 7:
                 strings_norm.emplace_back("postFSRgenzqtprojection")
                 strings_norm.emplace_back("weight")
 
-                d = d.Define("goodmuon","goodmuontrigger(goodgeneta,goodgenphi,Muon_pt,Muon_eta,Muon_phi,Muon_isGlobal,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi,Muon_dxybs,Muon_mediumId,isTriggeredMuon)").Define("newweight","weight*goodmuon")
+                d = d.Define("goodmuon","goodmuontrigger(goodgeneta,goodgenphi,Muon_pt,Muon_eta,Muon_phi,Muon_isGlobal,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi,Muon_dxybs,Muon_mediumId,isTriggeredLepton)").Define("newweight","weight*goodmuon")
 
                 pass_histogram_reco = d.Filter("goodgenpt.size()>=2").HistoND(model_pass_trig,strings_pass)
                 pass_histogram_norm = d.Filter("goodgenpt.size()>=2").HistoND(model_norm_trig,strings_norm)
@@ -612,7 +627,7 @@ elif args.efficiency != 7:
             if not (args.genLevelEfficiency):
                 makeAndSaveHistograms(d, histo_name, "Trigger", binning_mass, binning_pt, binning_eta)
             else:
-                d = d.Define("goodmuon","goodmuontrigger(goodgeneta,goodgenphi,Muon_pt,Muon_eta,Muon_phi,Muon_isGlobal,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi,Muon_dxybs,Muon_mediumId,isTriggeredMuon)").Define("newweight","weight*goodmuon")
+                d = d.Define("goodmuon","goodmuontrigger(goodgeneta,goodgenphi,Muon_pt,Muon_eta,Muon_phi,Muon_isGlobal,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi,Muon_dxybs,Muon_mediumId,isTriggeredLepton)").Define("newweight","weight*goodmuon")
 
                 model_pass_reco = ROOT.RDF.TH2DModel("Pass","",len(binning_eta)-1,binning_eta,len(binning_pt)-1,binning_pt)
                 model_norm_reco = ROOT.RDF.TH2DModel("Norm","",len(binning_eta)-1,binning_eta,len(binning_pt)-1,binning_pt)
@@ -684,7 +699,7 @@ elif args.efficiency != 7:
                 strings_norm.emplace_back("postFSRgenzqtprojection")
                 strings_norm.emplace_back("weight")
 
-                d = d.Define("goodmuon","goodmuonisolation(goodgeneta,goodgenphi,Muon_pt,Muon_eta,Muon_phi,Muon_isGlobal,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi,Muon_dxybs,Muon_mediumId,isTriggeredMuon,Muon_pfRelIso04_all)").Define("newweight","weight*goodmuon")
+                d = d.Define("goodmuon","goodmuonisolation(goodgeneta,goodgenphi,Muon_pt,Muon_eta,Muon_phi,Muon_isGlobal,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi,Muon_dxybs,Muon_mediumId,isTriggeredLepton,Muon_pfRelIso04_all)").Define("newweight","weight*goodmuon")
 
                 pass_histogram_reco = d.Filter("goodgenpt.size()>=2").HistoND(model_pass_trig,strings_pass)
                 pass_histogram_norm = d.Filter("goodgenpt.size()>=2").HistoND(model_norm_trig,strings_norm)
@@ -695,7 +710,7 @@ elif args.efficiency != 7:
             if not (args.genLevelEfficiency):
                 makeAndSaveHistograms(d, histo_name, "Isolation", binning_mass, binning_pt, binning_eta)
             else:
-                d = d.Define("goodmuon","goodmuonisolation(goodgeneta,goodgenphi,Muon_pt,Muon_eta,Muon_phi,Muon_isGlobal,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi,Muon_dxybs,Muon_mediumId,isTriggeredMuon,Muon_pfRelIso04_all)").Define("newweight","weight*goodmuon")
+                d = d.Define("goodmuon","goodmuonisolation(goodgeneta,goodgenphi,Muon_pt,Muon_eta,Muon_phi,Muon_isGlobal,Muon_standalonePt,Muon_standaloneEta,Muon_standalonePhi,Muon_dxybs,Muon_mediumId,isTriggeredLepton,Muon_pfRelIso04_all)").Define("newweight","weight*goodmuon")
 
                 model_pass_reco = ROOT.RDF.TH2DModel("Pass","",len(binning_eta)-1,binning_eta,len(binning_pt)-1,binning_pt)
                 model_norm_reco = ROOT.RDF.TH2DModel("Norm","",len(binning_eta)-1,binning_eta,len(binning_pt)-1,binning_pt)
@@ -736,7 +751,7 @@ else:
     #     sign= ">" if args.charge > 0 else "<"
     #     chargeCut = f" && Muon_charge {sign} 0"
     ## FIXME: add something else? Note that looseId already includes (Muon_isGlobal || Muon_isTracker)
-    #d = d.Define("BasicProbe_Muons", f"Muon_pt > 10 && abs(Muon_eta) < 2.4 && (Muon_isGlobal || Muon_isTracker) && isGenMatchedMuon {chargeCut}")
+    #d = d.Define("BasicProbe_Muons", f"Muon_pt > 10 && abs(Muon_eta) < 2.4 && (Muon_isGlobal || Muon_isTracker) && isGenMatchedLepton {chargeCut}")
     #
     # use tracks for all probes rather than muons
     if(args.isData == 1):

@@ -246,10 +246,10 @@ RVec<Float_t> coll1coll2DR(const RVec<Float_t> &coll1_eta, const RVec<Float_t> &
   return resDR;
 }
 
-RVec<Bool_t> hasTriggerMatch(RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi,
-                             RVec<Int_t> &TrigObj_id, RVec<Int_t> &TrigObj_filterBits,
-                             RVec<Float_t> &TrigObj_eta, RVec<Float_t> &TrigObj_phi,
-                             bool isLowPU = false)
+RVec<Bool_t> hasMuonTriggerMatch(RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi,
+                                 RVec<Int_t> &TrigObj_id, RVec<Int_t> &TrigObj_filterBits,
+                                 RVec<Float_t> &TrigObj_eta, RVec<Float_t> &TrigObj_phi,
+                                 bool isLowPU = false)
 {
   RVec<Bool_t> TriggerMatch;
   for (int iMuon = 0; iMuon < Muon_eta.size(); iMuon++)
@@ -264,6 +264,41 @@ RVec<Bool_t> hasTriggerMatch(RVec<Float_t> &Muon_eta, RVec<Float_t> &Muon_phi,
       if (isLowPU && (!(TrigObj_filterBits[iTrig] & 1)))
         continue;
       if (deltaR(Muon_eta[iMuon], Muon_phi[iMuon], TrigObj_eta[iTrig], TrigObj_phi[iTrig]) < 0.3)
+      {
+        hasTrigMatch = true;
+        break;
+      }
+    }
+    TriggerMatch.push_back(hasTrigMatch);
+  }
+  return TriggerMatch;
+}
+
+RVec<Bool_t> hasElectronTriggerMatch(RVec<Float_t> &Electron_eta, RVec<Float_t> &Electron_phi,
+                                     RVec<Int_t> &TrigObj_id, RVec<Int_t> &TrigObj_filterBits,
+                                     RVec<Float_t> &TrigObj_eta, RVec<Float_t> &TrigObj_phi,
+                                     bool isLowPU = true)
+{
+  RVec<Bool_t> TriggerMatch;
+  for (int iElectron = 0; iElectron < Electron_eta.size(); iElectron++)
+  {
+    bool hasTrigMatch = false;
+    for (unsigned int iTrig = 0; iTrig < TrigObj_id.size(); ++iTrig)
+    {
+      if (TrigObj_id[iTrig] != 11)
+        continue;
+      if ((!isLowPU) && (!((TrigObj_filterBits[iTrig] & 16) || (TrigObj_filterBits[iTrig] & 32))))
+      {
+        // this should never be triggered
+        std::cerr << "ERROR: Electron trigger filter bits not found" << TrigObj_filterBits[iTrig] << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      if (isLowPU && (!(TrigObj_filterBits[iTrig] & 1)))
+      {
+        // need to change for 5TeV
+        continue;
+      }
+      if (deltaR(Electron_eta[iElectron], Electron_phi[iElectron], TrigObj_eta[iTrig], TrigObj_phi[iTrig]) < 0.3)
       {
         hasTrigMatch = true;
         break;
